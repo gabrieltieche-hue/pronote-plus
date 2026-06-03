@@ -1,0 +1,29 @@
+{
+  "name": "pronote-plus",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Pronote+ — L'interface augmentée de Pronote, libre et open-source",
+  "scripts": {
+    "dev": "concurrently -k -n CLIENT,SERVER -c cyan,magenta \"vite\" \"npm --prefix server run dev\"",
+    "dev:client": "vite",
+    "dev:server": "npm --prefix server run dev",
+    "build": "vite build",
+    "start": "node server/index.js",
+    "preview": "vite preview",
+    "postinstall": "npm --prefix server install"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.28.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.0.1",
+    "postcss": "^8.4.49",
+    "tailwindcss": "^3.4.15",
+    "vite": "^6.0.3"
+  }
+}

@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#181829" id="theme-color-meta" />
+  <meta name="color-scheme" content="dark light" />
+
+  <title>Pronote+ — Ta vie scolaire, augmentée.</title>
+  <meta name="description" content="Pronote+ est une version améliorée de Pronote (non-affiliée) : notes, moyennes, emploi du temps, devoirs. Gratuit, open-source, sans pub." />
+
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="Pronote+ — Ta vie scolaire, augmentée." />
+  <meta property="og:description" content="Notes, moyennes, emploi du temps, devoirs. Gratuit, open-source, sans pub." />
+  <meta property="og:locale" content="fr_FR" />
+  <meta name="twitter:card" content="summary" />
+
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('pronoteplus-theme');
+        if (t !== 'dark' && t !== 'light') {
+          t = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        }
+        document.documentElement.classList.add(t);
+        var meta = document.getElementById('theme-color-meta');
+        if (meta) meta.setAttribute('content', t === 'dark' ? '#181829' : '#E4E4FF');
+      } catch (e) {
+        document.documentElement.classList.add('dark');
+      }
+    })();
+  </script>
+
+  <style>
+    html, body { margin: 0; padding: 0; height: 100%; }
+    body { background: #181829; }
+    .light body { background: #E4E4FF; }
+    #splash {
+      position: fixed; inset: 0; z-index: 9999;
+      display: flex; align-items: center; justify-content: center;
+      background: #181829;
+      transition: opacity 0.4s ease;
+    }
+    .light #splash { background: #E4E4FF; }
+    #splash.fade-out { opacity: 0; pointer-events: none; }
+    #splash svg {
+      width: 80px; height: 80px;
+      animation: pulse 1.4s ease-in-out infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(1.06); opacity: 1; }
+    }
+    .light #splash svg { filter: drop-shadow(0 0 12px rgba(75, 72, 217, 0.5)); }
+    #splash svg { filter: drop-shadow(0 0 12px rgba(180, 180, 240, 0.4)); }
+  </style>
+</head>
+<body>
+  <div id="splash" aria-hidden="true">
+    <svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-label="Pronote+">
+      <defs>
+        <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#B4C9FF"/>
+          <stop offset="100%" stop-color="#C1B7FF"/>
+        </linearGradient>
+      </defs>
+      <rect width="100" height="100" rx="22" fill="url(#g)"/>
+      <text x="50" y="68" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="48" font-weight="800" fill="#181829">P+</text>
+    </svg>
+  </div>
+  <div id="root"></div>
+  <script>
+    window.addEventListener('load', function () {
+      setTimeout(function () {
+        var s = document.getElementById('splash');
+        if (s) {
+          s.classList.add('fade-out');
+          setTimeout(function () { s.remove(); }, 500);
+        }
+      }, 200);
+    });
+  </script>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+</html>
