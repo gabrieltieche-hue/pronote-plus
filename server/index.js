@@ -131,6 +131,61 @@ async function createSession(url, username, password, kind) {
   return session;
 }
 
+const sessionCache = new Map();
+const SESSION_TTL_MS = 5 * 60 * 1000;
+
+function getCachedSession(key) {
+  const cached = sessionCache.get(key);
+  if (!cached) return null;
+  if (Date.now() - cached.lastUsed > SESSION_TTL_MS) {
+    sessionCache.delete(key);
+    return null;
+  }
+  return cached;
+}
+
+function setCachedSession(key, session) {
+  sessionCache.set(key, { session, lastUsed: Date.now() });
+  if (sessionCache.size > 500) {
+    const now = Date.now();
+    for (const [k, v] of sessionCache.entries()) {
+      if (now - v.lastUsed > SESSION_TTL_MS) sessionCache.delete(k);
+    }
+  }
+}
+
+function invalidateSession(key) {
+  sessionCache.delete(key);
+}
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of sessionCache.entries()) {
+    if (now - v.lastUsed > SESSION_TTL_MS) sessionCache.delete(k);
+  }
+}, 60 * 1000).unref?.();
+
+function cacheKey({ url, username }) {
+  return `${url}::${username}`;
+}
+
+async function getOrCreateSession(_req, params) {
+  const key = cacheKey(params);
+  const cached = getCachedSession(key);
+  if (cached) {
+    cached.lastUsed = Date.now();
+    return cached.session;
+  }
+  const session = await createSession(params.url, params.username, params.password, params.kind);
+  setCachedSession(key, session);
+  return session;
+}
+
+function invalidateUserSession(req) {
+  if (!req.user?.url || !req.user?.username) return;
+  invalidateSession(cacheKey({ url: req.user.url, username: req.user.username }));
+}
+
 function isSessionError(err) {
   const name = err?.constructor?.name || '';
   const message = String(err?.message || err || '');
@@ -209,7 +264,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
       return res.status(400).json({ error: 'Type de compte invalide. Utilisez student, parent ou teacher' });
     }
 
-    const session = await createSession(url, username, password, kind);
+    const session = await getOrCreateSession(null, { url, username, password, kind });
     const resource = session.userResource;
 
     const token = jwt.sign(
@@ -265,7 +320,7 @@ app.post('/api/auth/login', loginLimiter, async (req, res) => {
 app.get('/api/periods', authenticate, async (req, res) => {
   try {
     const { url, username, password, kind } = req.user;
-    const session = await createSession(url, username, password, kind);
+    const session = await getOrCreateSession(req, { url, username, password, kind });
     const gradesTab = session.userResource.tabs.get(pronote.TabLocation.Grades);
 
     if (!gradesTab) {
@@ -285,6 +340,7 @@ app.get('/api/periods', authenticate, async (req, res) => {
     });
   } catch (err) {
     if (isSessionError(err)) {
+      invalidateUserSession(req);
       return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' });
     }
     console.error('Periods error:', err);
@@ -295,7 +351,7 @@ app.get('/api/periods', authenticate, async (req, res) => {
 app.get('/api/grades', authenticate, async (req, res) => {
   try {
     const { url, username, password, kind } = req.user;
-    const session = await createSession(url, username, password, kind);
+    const session = await getOrCreateSession(req, { url, username, password, kind });
     const gradesTab = session.userResource.tabs.get(pronote.TabLocation.Grades);
 
     if (!gradesTab) {
@@ -303,11 +359,24 @@ app.get('/api/grades', authenticate, async (req, res) => {
     }
 
     const requestedPeriodId = req.query.periodId ? String(req.query.periodId) : null;
-    const period = requestedPeriodId
-      ? gradesTab.periods.find((p) => String(p.id) === requestedPeriodId)
-      : gradesTab.defaultPeriod || gradesTab.periods[0];
+
+    const stripPrefix = (id) => {
+      if (typeof id !== 'string') return String(id);
+      return id.replace(/^\d+#/, '');
+    };
+
+    let period = null;
+    if (requestedPeriodId) {
+      period = gradesTab.periods.find((p) => String(p.id) === requestedPeriodId)
+        || gradesTab.periods.find((p) => stripPrefix(p.id) === stripPrefix(requestedPeriodId))
+        || gradesTab.periods.find((p) => stripPrefix(p.id) === requestedPeriodId)
+        || gradesTab.periods.find((p) => String(p.id) === stripPrefix(requestedPeriodId));
+    } else {
+      period = gradesTab.defaultPeriod || gradesTab.periods[0];
+    }
 
     if (!period) {
+      console.error('[grades] Period not found. Received:', requestedPeriodId, 'Available:', gradesTab.periods.map((p) => p.id));
       return res.status(404).json({ error: 'Période non trouvée' });
     }
 
@@ -408,6 +477,7 @@ app.get('/api/grades', authenticate, async (req, res) => {
     });
   } catch (err) {
     if (isSessionError(err)) {
+      invalidateUserSession(req);
       return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' });
     }
     console.error('Grades error:', err);
@@ -418,7 +488,7 @@ app.get('/api/grades', authenticate, async (req, res) => {
 app.get('/api/user', authenticate, async (req, res) => {
   try {
     const { url, username, password, kind } = req.user;
-    const session = await createSession(url, username, password, kind);
+    const session = await getOrCreateSession(req, { url, username, password, kind });
     const resource = session.userResource;
 
     res.json({
@@ -429,6 +499,7 @@ app.get('/api/user', authenticate, async (req, res) => {
     });
   } catch (err) {
     if (isSessionError(err)) {
+      invalidateUserSession(req);
       return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' });
     }
     console.error('User info error:', err);
@@ -439,33 +510,50 @@ app.get('/api/user', authenticate, async (req, res) => {
 app.get('/api/timetable', authenticate, async (req, res) => {
   try {
     const { url, username, password, kind } = req.user;
-    const session = await createSession(url, username, password, kind);
-    const timetableTab = session.userResource.tabs.get(pronote.TabLocation.Timetable);
-    if (!timetableTab) {
+    const session = await getOrCreateSession(req, { url, username, password, kind });
+
+    const allowedTabs = session.user?.authorizations?.tabs || [];
+    if (!allowedTabs.includes(pronote.TabLocation.Timetable)) {
       return res.status(404).json({ error: 'Emploi du temps non disponible pour ce compte' });
     }
+
     const from = req.query.from ? new Date(String(req.query.from)) : new Date();
     const to = req.query.to ? new Date(String(req.query.to)) : new Date(from.getTime() + 7 * 24 * 60 * 60 * 1000);
     if (isNaN(from) || isNaN(to) || to < from) {
       return res.status(400).json({ error: 'Paramètres de dates invalides' });
     }
-    const lessons = await pronote.lessons(session, from, to).catch(() => []);
-    const formatted = lessons.map((l) => ({
-      id: l.id,
-      subject: l.subject?.name || 'Inconnu',
-      teacher: l.teacher?.name || null,
-      classroom: l.classroom || null,
-      start: l.startDate instanceof Date ? l.startDate.toISOString() : (l.startDate || null),
-      end: l.endDate instanceof Date ? l.endDate.toISOString() : (l.endDate || null),
-      groupName: l.groupName || null,
-      isCancelled: !!l.isCancelled,
-      isDetention: !!l.isDetention,
-      isExempted: !!l.isExempted,
-      isTest: !!l.isTest,
-    }));
-    res.json({ lessons: formatted, from: from.toISOString(), to: to.toISOString() });
+
+    const data = await pronote.timetableFromIntervals(session, from, to).catch((e) => {
+      console.error('[timetable] Pawnote error:', e);
+      return null;
+    });
+
+    if (!data || !Array.isArray(data.classes)) {
+      return res.json({ lessons: [], from: from.toISOString(), to: to.toISOString() });
+    }
+
+    const lessons = data.classes.map((c) => {
+      const isLesson = c.is === 'lesson';
+      return {
+        id: c.id,
+        subject: isLesson ? (c.subject?.name || 'Cours') : (c.title || 'Activité'),
+        teacher: isLesson ? (c.teacherNames?.[0] || null) : (c.teacherNames?.[0] || null),
+        classroom: isLesson ? (c.classrooms?.[0] || null) : (c.classrooms?.[0] || null),
+        start: c.startDate instanceof Date ? c.startDate.toISOString() : null,
+        end: c.endDate instanceof Date ? c.endDate.toISOString() : null,
+        groupName: isLesson ? (c.groupNames?.[0] || null) : null,
+        isCancelled: isLesson ? !!c.canceled : false,
+        isDetention: c.is === 'detention',
+        isExempted: isLesson ? !!c.exempted : false,
+        isTest: isLesson ? !!c.test : false,
+        kind: c.is,
+      };
+    });
+
+    res.json({ lessons, from: from.toISOString(), to: to.toISOString() });
   } catch (err) {
     if (isSessionError(err)) {
+      invalidateUserSession(req);
       return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' });
     }
     console.error('Timetable error:', err);
@@ -476,23 +564,33 @@ app.get('/api/timetable', authenticate, async (req, res) => {
 app.get('/api/homeworks', authenticate, async (req, res) => {
   try {
     const { url, username, password, kind } = req.user;
-    const session = await createSession(url, username, password, kind);
-    const homeworkTab = session.userResource.tabs.get(pronote.TabLocation.Homework);
-    if (!homeworkTab) {
+    const session = await getOrCreateSession(req, { url, username, password, kind });
+
+    const allowedTabs = session.user?.authorizations?.tabs || [];
+    if (!allowedTabs.includes(pronote.TabLocation.Assignments)) {
       return res.status(404).json({ error: 'Devoirs non disponibles pour ce compte' });
     }
+
     const from = req.query.from ? new Date(String(req.query.from)) : new Date();
     const to = req.query.to ? new Date(String(req.query.to)) : new Date(from.getTime() + 14 * 24 * 60 * 60 * 1000);
     if (isNaN(from) || isNaN(to) || to < from) {
       return res.status(400).json({ error: 'Paramètres de dates invalides' });
     }
-    const homeworks = await pronote.homeworks(session, from, to).catch(() => []);
-    const formatted = homeworks.map((h) => ({
+
+    const assignments = await pronote.assignmentsFromIntervals(session, from, to).catch((e) => {
+      console.error('[homeworks] Pawnote error:', e);
+      return null;
+    });
+
+    if (!assignments || !Array.isArray(assignments)) {
+      return res.json({ homeworks: [], from: from.toISOString(), to: to.toISOString() });
+    }
+
+    const homeworks = assignments.map((h) => ({
       id: h.id,
       subject: h.subject?.name || 'Inconnu',
-      teacher: h.teacher?.name || null,
       description: h.description || '',
-      forDate: h.forDate instanceof Date ? h.forDate.toISOString() : (h.forDate || null),
+      forDate: h.deadline instanceof Date ? h.deadline.toISOString() : (h.deadline || null),
       done: !!h.done,
       files: (h.attachments || []).map((a) => ({
         id: a.id,
@@ -500,9 +598,11 @@ app.get('/api/homeworks', authenticate, async (req, res) => {
         url: a.url || null,
       })),
     }));
-    res.json({ homeworks: formatted, from: from.toISOString(), to: to.toISOString() });
+
+    res.json({ homeworks, from: from.toISOString(), to: to.toISOString() });
   } catch (err) {
     if (isSessionError(err)) {
+      invalidateUserSession(req);
       return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' });
     }
     console.error('Homeworks error:', err);
