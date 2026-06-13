@@ -9,7 +9,6 @@ import { UrlHelpButton, UrlHelpPopover } from '../components/UrlHelp'
 const KIND_LABELS = {
   student: { label: 'Élève', icon: '🎒' },
   parent: { label: 'Parent', icon: '👨‍👩‍👧' },
-  teacher: { label: 'Prof', icon: '🧑‍🏫' },
 }
 
 export default function Login() {
@@ -77,33 +76,32 @@ export default function Login() {
             <Link to="/" style={{ textDecoration: 'none' }}>
               <Logo size={34} withText={true} />
             </Link>
-            <h1>Pronote, mieux présenté dès la connexion.</h1>
+            <h1>Notes, EDT, devoirs — tout est là.</h1>
             <p>
-              Retrouve tes notes, ton emploi du temps, tes devoirs et ta messagerie dans une interface plus lisible,
-              plus rapide à parcourir et pensée pour un usage quotidien sur mobile comme sur ordinateur.
+              Connecte-toi avec tes identifiants Pronote. Ton interface, plus claire.
             </p>
           </div>
 
           <div className="auth-points">
             <FeaturePoint
               icon={<IconChart size={18} />}
-              title="Vue d’ensemble immédiate"
-              text="Moyennes, tendances et priorités s’affichent sans devoir fouiller les écrans."
+              title="Moyennes & notes"
+              text="Toutes tes notes avec moyennes par matière."
             />
             <FeaturePoint
               icon={<IconCalendar size={18} />}
-              title="Agenda plus clair"
-              text="Le calendrier et les devoirs gardent une densité utile sans perdre en lisibilité."
+              title="Emploi du temps"
+              text="Ta semaine de cours synchronisée."
             />
             <FeaturePoint
               icon={<IconMail size={18} />}
-              title="Messagerie recentrée"
-              text="Les discussions importantes ressortent mieux et les réponses restent rapides à envoyer."
+              title="Messagerie"
+              text="Tes discussions Pronote, directement ici."
             />
             <FeaturePoint
               icon={<IconShield size={18} />}
-              title="Sécurité expliquée"
-              text="Les identifiants ne sont jamais stockés en clair et la session reste révocable."
+              title="Sécurisé"
+              text="Mots de passe chiffrés, aucun stockage en clair."
             />
           </div>
         </section>
@@ -114,7 +112,7 @@ export default function Login() {
               Connexion Pronote
             </h1>
             <p style={{ fontSize: 'var(--font-size-13)', textAlign: 'center', color: 'rgb(var(--text-color-alt))', margin: '0 0 20px' }}>
-              Connecte-toi avec ton compte élève, parent ou professeur.
+              Connecte-toi avec ton compte élève ou parent.
             </p>
 
             <div className="auth-kind-grid">
