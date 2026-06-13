@@ -3,7 +3,7 @@ import { useApp } from '../context/AppContext'
 import { Logo } from '../components/Logo'
 import {
   IconExternal, IconShield, IconChart, IconTarget, IconCalendar, IconClipboard,
-  IconSchool, IconMail, IconSun,
+  IconSchool, IconMail, IconSun, IconMoon,
 } from '../components/Icons'
 
 const features = [
@@ -25,7 +25,7 @@ const steps = [
 
 export default function Landing() {
   const navigate = useNavigate()
-  const { token, user } = useApp()
+  const { token, user, theme, toggleTheme } = useApp()
 
   return (
     <div className="animate-fade-in">
@@ -50,6 +50,26 @@ export default function Landing() {
           <Logo size={32} withText={true} />
         </Link>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <button
+            onClick={toggleTheme}
+            className="icon-btn"
+            title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+            style={{
+              width: 36,
+              height: 36,
+              borderRadius: 99,
+              border: '1px solid rgb(var(--border-color-1))',
+              background: 'rgb(var(--background-color-1))',
+              color: 'rgb(var(--text-color-main))',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              cursor: 'pointer',
+              transition: 'background 0.2s, color 0.2s',
+            }}
+          >
+            {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+          </button>
           {token ? (
             <>
               <span style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))' }}>
@@ -108,7 +128,7 @@ export default function Landing() {
           <br />
           <span
             style={{
-              background: 'linear-gradient(135deg, #B4C9FF, #C1B7FF)',
+              background: 'linear-gradient(135deg, #C9A96E, #E8D5A8)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -218,8 +238,8 @@ export default function Landing() {
             margin: '0 0 36px',
           }}
         >
-          Tout ce qu'il te faut, <span style={{
-            background: 'linear-gradient(135deg, #B4C9FF, #C1B7FF)',
+          Tout ce qu'il te faut,           <span style={{
+            background: 'linear-gradient(135deg, #C9A96E, #E8D5A8)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
           }}>rien de plus.</span>
@@ -406,14 +426,17 @@ function MockCard({ title, big, small, foot, rows, cols, accent, style }) {
         ...style,
       }}
     >
-      <div style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'var(--font-weight-semi-bold)' }}>
+      <div style={{ fontSize: 'var(--font-size-12)', color: accent ? 'rgba(18, 14, 8, 0.6)' : 'rgb(var(--text-color-alt))', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'var(--font-weight-semi-bold)' }}>
         {title}
       </div>
       {big && (
-        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, flex: 1, justifyContent: 'center' }}>
+        <div style={{ display: 'flex', alignItems: 'baseline', gap: 4, flex: 1, justifyContent: 'center', color: accent ? '#120e08' : undefined }}>
           <span style={{ fontSize: '3.2rem', fontWeight: 'var(--font-weight-extra-bold)', lineHeight: 1 }}>{big}</span>
           {small && <span style={{ fontSize: 'var(--font-size-18)', opacity: 0.7 }}>{small}</span>}
         </div>
+      )}
+      {foot && (
+        <div style={{ fontSize: 'var(--font-size-12)', textAlign: 'center', marginTop: 'auto', color: accent ? 'rgba(18, 14, 8, 0.55)' : undefined }}>{foot}</div>
       )}
       {cols && (
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '4px 12px', fontSize: 'var(--font-size-12)' }}>
@@ -439,9 +462,6 @@ function MockCard({ title, big, small, foot, rows, cols, accent, style }) {
             </div>
           ))}
         </div>
-      )}
-      {foot && (
-        <div style={{ fontSize: 'var(--font-size-12)', textAlign: 'center', marginTop: 'auto' }}>{foot}</div>
       )}
     </div>
   )

@@ -12,8 +12,8 @@ export function Logo({ size = 32, withText = true }) {
       >
         <defs>
           <linearGradient id={`pp-grad-${size}`} x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#B4C9FF" />
-            <stop offset="100%" stopColor="#C1B7FF" />
+            <stop offset="0%" stopColor="#C9A96E" />
+            <stop offset="100%" stopColor="#E8D5A8" />
           </linearGradient>
         </defs>
         <rect width="100" height="100" rx="22" fill={`url(#pp-grad-${size})`} />
@@ -24,7 +24,7 @@ export function Logo({ size = 32, withText = true }) {
           fontFamily="Inter, system-ui, sans-serif"
           fontSize={fs}
           fontWeight="800"
-          fill="#181829"
+          fill="#120e08"
         >P+</text>
       </svg>
       {withText && (
