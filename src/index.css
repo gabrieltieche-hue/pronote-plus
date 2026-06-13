@@ -2238,9 +2238,9 @@ html.light .message-bubble.from-me { color: #fff; }
 .auth-showcase {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 28px;
-  padding: clamp(22px, 3vw, 36px);
+  justify-content: flex-start;
+  gap: 20px;
+  padding: clamp(28px, 3vw, 40px) clamp(22px, 3vw, 36px);
   border-radius: var(--radius-xl);
   border: 1px solid rgba(var(--border-color-contrast), 0.76);
   background:
@@ -2250,7 +2250,7 @@ html.light .message-bubble.from-me { color: #fff; }
 }
 
 .auth-copy h1 {
-  margin: 16px 0 10px;
+  margin: 12px 0 8px;
   font-size: clamp(3rem, 4vw, 4.8rem);
   line-height: 1.02;
 }
