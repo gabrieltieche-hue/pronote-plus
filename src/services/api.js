@@ -1,6 +1,6 @@
 const API_URL = import.meta.env.VITE_API_URL || ''
 
-class ApiError extends Error {
+export class ApiError extends Error {
   constructor(message, status, data) {
     super(message)
     this.name = 'ApiError'
@@ -25,17 +25,22 @@ async function request(path, options = {}) {
   }
   if (token) headers['Authorization'] = `Bearer ${token}`
 
-  const res = await fetch(`${API_URL}${path}`, { headers, ...options })
+  let res
+  try {
+    res = await fetch(`${API_URL}${path}`, { headers, ...options })
+  } catch (e) {
+    throw new ApiError('Impossible de contacter le serveur. Vérifie ta connexion.', 0, null)
+  }
 
   let data = null
   const contentType = res.headers.get('content-type') || ''
   if (contentType.includes('application/json')) {
-    data = await res.json()
+    try { data = await res.json() } catch { data = null }
   }
 
   if (!res.ok) {
-    if (res.status === 401 && onUnauthorizedFn) {
-      onUnauthorizedFn()
+    if (res.status === 401) {
+      try { onUnauthorizedFn && onUnauthorizedFn() } catch {}
     }
     throw new ApiError(
       (data && data.error) || `Erreur ${res.status}`,
@@ -46,44 +51,43 @@ async function request(path, options = {}) {
   return data
 }
 
-export async function login(url, username, password, kind = 'student') {
-  return request('/api/auth/login', {
+function qs(params) {
+  if (!params) return ''
+  const sp = new URLSearchParams()
+  for (const [k, v] of Object.entries(params)) {
+    if (v == null) continue
+    sp.set(k, v instanceof Date ? v.toISOString() : String(v))
+  }
+  const s = sp.toString()
+  return s ? `?${s}` : ''
+}
+
+export const login = (url, username, password, kind = 'student') =>
+  request('/api/auth/login', {
     method: 'POST',
     body: JSON.stringify({ url, username, password, kind }),
   })
-}
 
-export async function fetchUser() {
-  return request('/api/user')
+export async function logoutSession(token) {
+  if (!token) return
+  try {
+    await fetch(`${API_URL}/api/auth/logout`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  } catch {}
 }
-
-export async function fetchPeriods() {
-  return request('/api/periods')
-}
-
-export async function fetchGrades(periodId) {
-  const params = periodId ? `?periodId=${encodeURIComponent(periodId)}` : ''
-  return request(`/api/grades${params}`)
-}
-
-export async function fetchTimetable(from, to) {
-  const params = new URLSearchParams()
-  if (from) params.set('from', from instanceof Date ? from.toISOString() : from)
-  if (to) params.set('to', to instanceof Date ? to.toISOString() : to)
-  const qs = params.toString()
-  return request(`/api/timetable${qs ? `?${qs}` : ''}`)
-}
-
-export async function fetchHomeworks(from, to) {
-  const params = new URLSearchParams()
-  if (from) params.set('from', from instanceof Date ? from.toISOString() : from)
-  if (to) params.set('to', to instanceof Date ? to.toISOString() : to)
-  const qs = params.toString()
-  return request(`/api/homeworks${qs ? `?${qs}` : ''}`)
-}
-
-export async function pingHealth() {
-  return request('/api/health')
-}
-
-export { ApiError }
+export const fetchUser = () => request('/api/user')
+export const fetchPeriods = () => request('/api/periods')
+export const fetchGrades = (periodId) => request(`/api/grades${qs({ periodId })}`)
+export const fetchTimetable = (from, to) => request(`/api/timetable${qs({ from, to })}`)
+export const fetchHomeworks = (from, to) => request(`/api/homeworks${qs({ from, to })}`)
+export const fetchVieScolaire = () => request('/api/vie-scolaire')
+export const fetchDiscussions = () => request('/api/discussions')
+export const fetchDiscussionMessages = (id) => request(`/api/discussions/${encodeURIComponent(id)}/messages`)
+export const sendDiscussionMessage = (id, content) => request(`/api/discussions/${encodeURIComponent(id)}/messages`, {
+  method: 'POST',
+  body: JSON.stringify({ content }),
+})
+export const markDiscussionRead = (id) => request(`/api/discussions/${encodeURIComponent(id)}/read`, { method: 'POST' })
+export const pingHealth = () => request('/api/health')

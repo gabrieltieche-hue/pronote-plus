@@ -1,119 +1,152 @@
-import { useNavigate, NavLink, useLocation } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { Logo } from './Logo'
-import { IconSun, IconMoon, IconLogout, IconRefresh, IconHome, IconBook, IconCalendar, IconClipboard } from './Icons'
+import { ConfirmModal } from './Modal'
+import {
+  IconChevronDown,
+  IconLogout,
+  IconMoon,
+  IconRefresh,
+  IconSettings,
+  IconSun,
+  IconUser,
+} from './Icons'
 import { formatRelative } from '../utils/format'
 
-export function Header({ onRefresh, lastSync, loading }) {
+export function Header({ onRefresh, lastSync, loading, title, subtitle, badge, actions }) {
   const navigate = useNavigate()
-  const location = useLocation()
   const { user, theme, toggleTheme, logout } = useApp()
+  const [confirmLogout, setConfirmLogout] = useState(false)
+  const [userMenuOpen, setUserMenuOpen] = useState(false)
+  const userMenuRef = useRef(null)
 
-  function handleLogout() {
-    if (window.confirm('Tu veux vraiment te déconnecter ?')) {
-      logout()
-      navigate('/', { replace: true })
+  useEffect(() => {
+    if (!userMenuOpen) return
+    function onClick(event) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target)) {
+        setUserMenuOpen(false)
+      }
     }
+    document.addEventListener('mousedown', onClick)
+    return () => document.removeEventListener('mousedown', onClick)
+  }, [userMenuOpen])
+
+  async function handleLogout() {
+    await logout()
+    navigate('/', { replace: true })
   }
 
   return (
-    <header
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        padding: '12px 16px',
-        backgroundColor: 'rgb(var(--background-color-1))',
-        borderRadius: 15,
-        boxShadow: 'var(--box-shadow-window)',
-        gap: 12,
-        flexWrap: 'wrap',
-      }}
-    >
-      <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap' }}>
-        <Logo size={36} withText={true} />
-        <span className="edp-pill" title="Version">v0.2.0</span>
-        {user && user.name && (
-          <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.2 }}>
-            <span style={{ fontSize: 'var(--font-size-14)', fontWeight: 'var(--font-weight-semi-bold)' }}>
-              {user.name}
-            </span>
-            {user.class && (
-              <span style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))' }}>
-                {user.class}{user.establishment ? ` · ${user.establishment}` : ''}
-              </span>
-            )}
+    <>
+      <header className="app-header">
+        <div className="app-header-main">
+          <div className="app-header-copy">
+            {badge ? <div className="app-header-badge">{badge}</div> : null}
+            {title ? <h1>{title}</h1> : null}
+            {subtitle ? <p>{subtitle}</p> : null}
           </div>
-        )}
-      </div>
 
-      <nav style={{ display: 'flex', alignItems: 'center', gap: 4, flexWrap: 'wrap' }}>
-        <NavTab to="/app" label="Notes" icon={<IconBook size={16} />} current={location.pathname} />
-        <NavTab to="/timetable" label="Emploi du temps" icon={<IconCalendar size={16} />} current={location.pathname} />
-        <NavTab to="/homeworks" label="Devoirs" icon={<IconClipboard size={16} />} current={location.pathname} />
-      </nav>
+          <div className="app-header-tools">
+            {actions ? <div className="app-header-inline-actions">{actions}</div> : null}
+            {lastSync ? (
+              <div className="app-header-sync" title={new Date(lastSync).toLocaleString('fr-FR')}>
+                Mis à jour {formatRelative(lastSync)}
+              </div>
+            ) : null}
+            {onRefresh ? (
+              <button
+                type="button"
+                className="edp-btn-icon"
+                onClick={onRefresh}
+                disabled={loading}
+                title="Rafraîchir les données"
+                aria-label="Rafraîchir"
+              >
+                <span style={{ display: 'inline-block', animation: loading ? 'spin 0.8s linear infinite' : 'none' }}>
+                  <IconRefresh size={18} />
+                </span>
+              </button>
+            ) : null}
+            <button
+              type="button"
+              className="edp-btn-icon"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+              aria-label="Changer le thème"
+            >
+              {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+            </button>
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-        {lastSync && (
-          <span style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))' }}>
-            Sync {formatRelative(lastSync)}
-          </span>
-        )}
-        {onRefresh && (
-          <button
-            className="edp-btn-icon"
-            onClick={onRefresh}
-            disabled={loading}
-            title="Rafraîchir les données"
-            aria-label="Rafraîchir"
-          >
-            <span style={{ display: 'inline-block', animation: loading ? 'spin 0.8s linear infinite' : 'none' }}>
-              <IconRefresh size={18} />
-            </span>
-          </button>
-        )}
-        <button
-          className="edp-btn-icon"
-          onClick={toggleTheme}
-          title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-          aria-label="Changer le thème"
-        >
-          {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-        </button>
-        <button
-          className="edp-btn-icon"
-          onClick={handleLogout}
-          title="Se déconnecter"
-          aria-label="Se déconnecter"
-        >
-          <IconLogout size={18} />
-        </button>
-      </div>
-    </header>
+            <div ref={userMenuRef} style={{ position: 'relative' }}>
+              <button
+                type="button"
+                className="account-chip"
+                onClick={() => setUserMenuOpen((value) => !value)}
+                aria-haspopup="menu"
+                aria-expanded={userMenuOpen}
+              >
+                <span className="account-chip-avatar">
+                  {(user?.name || '?').trim().charAt(0).toUpperCase()}
+                </span>
+                <span className="account-chip-copy">
+                  <strong>{user?.name || 'Compte'}</strong>
+                  <span>{user?.class || 'Session active'}</span>
+                </span>
+                <IconChevronDown size={14} />
+              </button>
+
+              {userMenuOpen ? (
+                <div className="account-menu" role="menu">
+                  <MenuItem
+                    icon={IconUser}
+                    label="Mon profil"
+                    onClick={() => {
+                      setUserMenuOpen(false)
+                      navigate('/settings')
+                    }}
+                  />
+                  <MenuItem
+                    icon={IconSettings}
+                    label="Paramètres"
+                    onClick={() => {
+                      setUserMenuOpen(false)
+                      navigate('/settings')
+                    }}
+                  />
+                  <MenuItem
+                    icon={IconLogout}
+                    label="Se déconnecter"
+                    danger
+                    onClick={() => {
+                      setUserMenuOpen(false)
+                      setConfirmLogout(true)
+                    }}
+                  />
+                </div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <ConfirmModal
+        open={confirmLogout}
+        title="Se déconnecter ?"
+        message="Tu vas être renvoyé à l'accueil. La synchronisation reprendra à la prochaine connexion."
+        confirmLabel="Se déconnecter"
+        cancelLabel="Annuler"
+        onConfirm={handleLogout}
+        onClose={() => setConfirmLogout(false)}
+      />
+    </>
   )
 }
 
-function NavTab({ to, label, icon, current }) {
-  const active = current === to || (to === '/app' && current.startsWith('/app'))
+function MenuItem({ icon: Icon, label, onClick, danger = false }) {
   return (
-    <NavLink
-      to={to}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 6,
-        padding: '6px 12px',
-        borderRadius: 8,
-        backgroundColor: active ? 'rgba(var(--border-color-0), 0.3)' : 'transparent',
-        color: 'rgb(var(--text-color-main))',
-        fontSize: 'var(--font-size-13)',
-        fontWeight: active ? 'var(--font-weight-semi-bold)' : 'var(--font-weight-regular)',
-        textDecoration: 'none',
-        transition: 'background 0.15s',
-      }}
-    >
-      {icon}
+    <button type="button" className={danger ? 'account-menu-item is-danger' : 'account-menu-item'} role="menuitem" onClick={onClick}>
+      <Icon size={16} />
       <span>{label}</span>
-    </NavLink>
+    </button>
   )
 }

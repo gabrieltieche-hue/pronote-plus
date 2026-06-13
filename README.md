@@ -19,7 +19,7 @@ npm install
 
 # 2. Configurer le serveur
 cp server/.env.example server/.env
-# Édite server/.env et mets un JWT_SECRET (32+ caractères aléatoires)
+# Édite server/.env et mets JWT_SECRET + ENCRYPTION_KEY (32+ caractères aléatoires)
 
 # 3. Lancer en mode dev (client + serveur en parallèle)
 npm run dev
@@ -41,20 +41,25 @@ npm start          # lance le serveur (sert le dist/ statique)
 2. Railway détecte `railway.json` + `nixpacks.toml` automatiquement
 3. Ajoute les variables d'environnement :
    - `JWT_SECRET` (obligatoire) — 64 caractères aléatoires
+   - `ENCRYPTION_KEY` (obligatoire) — clé séparée pour chiffrer les secrets Pronote
    - `CORS_ORIGIN` — domaine de ton app, ex `https://pronote-plus.up.railway.app`
 4. Railway te donne une URL publique. C'est tout.
 
-## Fonctionnalités v0.2
+## Fonctionnalités v0.3
 
 - Connexion au vrai Pronote (élève / parent / prof)
 - Import automatique des notes, moyennes, coefficients
 - Sélecteur de période (trimestre/semestre)
 - Moyenne générale + par matière + vs classe
 - Simulateur « j'ai besoin de combien au prochain DS ? »
-- Mode sombre / clair
-- **Emploi du temps de la semaine**
-- **Liste des devoirs à venir**
-- API REST sécurisée (Helmet, rate-limit, CORS, JWT chiffré)
+- Mode sombre / clair / auto (suit le système)
+- **Emploi du temps de la semaine** (vue grille, navigation, détail des cours)
+- **Liste des devoirs à venir** (recherche, filtre par matière, groupage par jour)
+- **Vie scolaire** (absences, retards, sanctions, observations)
+- **Messagerie** (lecture, envoi, marquage lu)
+- **Paramètres** (apparence, confidentialité, reset)
+- **Toasts / modals / tabs** accessibles
+- API REST sécurisée (Helmet, rate-limit, CORS, JWT signé, mot de passe Pronote chiffré AES-256-GCM)
 
 ## Variables d'environnement
 
@@ -63,16 +68,19 @@ npm start          # lance le serveur (sert le dist/ statique)
 | `PORT`           | Port d'écoute                          | `3001`        |
 | `NODE_ENV`       | `production` / `development`           | `development` |
 | `JWT_SECRET`     | Clé de signature des tokens (64+ char) | *obligatoire* |
-| `CORS_ORIGIN`    | Origines autorisées (CSV ou `*`)       | `*`           |
+| `ENCRYPTION_KEY` | Clé AES-256-GCM séparée                | *obligatoire en prod* |
+| `CORS_ORIGIN`    | Origines autorisées (CSV)              | même origine en prod |
 | `DEVICE_UUID`    | UUID device pour Pawnote               | server-v1     |
 | `TOKEN_TTL`      | Durée de vie des tokens                | `7d`          |
 
 ## Sécurité
 
-- Les mots de passe ne sont **jamais** stockés en clair : chiffrés avec AES-256-GCM dans le JWT
+- Les mots de passe ne sont **jamais stockés en clair** : ils sont chiffrés avec AES-256-GCM dans le cache de session serveur
+- Limite actuelle : le navigateur conserve un bearer token dans `localStorage`; la prochaine étape sécurité majeure est une session opaque ou un cookie `HttpOnly`
 - Rate-limit sur `/api/auth/login` (20 tentatives / 15 min)
 - Helmet (CSP, HSTS, etc.) en production
-- CORS configurable
+- CORS configurable, restrictif en production sans allowlist explicite
+- URL Pronote validée en HTTPS public pour réduire les risques SSRF
 - Aucune dépendance de tracking, aucune télémétrie
 
 ## Architecture
@@ -88,7 +96,7 @@ pronote-plus/
 ├── src/
 │   ├── components/         # Composants UI réutilisables
 │   ├── context/            # AppContext (theme, token, user)
-│   ├── pages/              # Landing, Login, Dashboard, Timetable, Homeworks
+│   ├── pages/              # Landing, Login, Dashboard, Timetable, Homeworks, VieScolaire, Messaging, Settings
 │   ├── services/           # Client API
 │   ├── utils/              # Helpers (grades, format, etc.)
 │   ├── App.jsx             # Routing

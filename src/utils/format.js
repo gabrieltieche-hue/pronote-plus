@@ -26,7 +26,12 @@ export function formatRelative(dateStr) {
   if (isNaN(d.getTime())) return ''
   const now = new Date()
   const diffMs = d.getTime() - now.getTime()
-  const diffDays = Math.round(diffMs / (1000 * 60 * 60 * 24))
+  const diffMinutes = Math.round(diffMs / (1000 * 60))
+  if (Math.abs(diffMinutes) < 1) return "à l'instant"
+  if (Math.abs(diffMinutes) < 60) return diffMinutes > 0 ? `dans ${diffMinutes} min` : `il y a ${Math.abs(diffMinutes)} min`
+  const diffHours = Math.round(diffMinutes / 60)
+  if (Math.abs(diffHours) < 24) return diffHours > 0 ? `dans ${diffHours} h` : `il y a ${Math.abs(diffHours)} h`
+  const diffDays = Math.round(diffHours / 24)
   if (diffDays === 0) return "aujourd'hui"
   if (diffDays === 1) return 'demain'
   if (diffDays === -1) return 'hier'
@@ -49,6 +54,14 @@ export function formatTime(dateStr) {
   }
 }
 
+export function formatTimeRange(startStr, endStr) {
+  if (!startStr) return ''
+  const s = formatTime(startStr)
+  if (!endStr) return s
+  const e = formatTime(endStr)
+  return e ? `${s} – ${e}` : s
+}
+
 export function formatNumber(value, decimals = 1) {
   if (value == null || !Number.isFinite(value)) return '—'
   return value.toFixed(decimals)
@@ -56,4 +69,19 @@ export function formatNumber(value, decimals = 1) {
 
 export function pluralize(count, singular, plural) {
   return count > 1 ? plural : singular
+}
+
+export function formatBytes(bytes) {
+  if (bytes == null || isNaN(bytes)) return ''
+  if (bytes < 1024) return `${bytes} o`
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} Ko`
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`
+}
+
+export function safeFileName(name, maxLen = 60) {
+  if (!name) return ''
+  if (name.length <= maxLen) return name
+  const ext = name.includes('.') ? '.' + name.split('.').pop() : ''
+  const base = name.slice(0, maxLen - ext.length - 3)
+  return `${base}...${ext}`
 }

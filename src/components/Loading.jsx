@@ -19,29 +19,21 @@ export function SkeletonList({ count = 3, itemHeight = 48, gap = 8 }) {
 
 export function LoadingCenter({ message = 'Chargement...' }) {
   return (
-    <div
-      style={{
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 12,
-        padding: 40,
-        minHeight: 200,
-        color: 'rgb(var(--text-color-alt))',
-      }}
-    >
-      <div
-        style={{
-          width: 32,
-          height: 32,
-          border: '3px solid rgb(var(--background-color-3))',
-          borderTopColor: 'rgb(var(--border-color-0))',
-          borderRadius: '50%',
-          animation: 'spin 0.8s linear infinite',
-        }}
-      />
-      <span style={{ fontSize: 'var(--font-size-14)' }}>{message}</span>
+    <div className="state-panel state-panel-loading" role="status" aria-live="polite">
+      <div className="loading-orbit" aria-hidden="true" />
+      <span>{message}</span>
+    </div>
+  )
+}
+
+export function LoadingBlock({ lines = 3 }) {
+  return (
+    <div className="loading-block" aria-hidden="true">
+      <Skeleton height={18} width="32%" style={{ marginBottom: 8 }} />
+      <Skeleton height={56} radius={14} style={{ marginBottom: 8 }} />
+      {Array.from({ length: lines }).map((_, index) => (
+        <Skeleton key={index} height={44} radius={12} style={{ marginTop: index === 0 ? 0 : 8 }} />
+      ))}
     </div>
   )
 }

@@ -4,29 +4,17 @@ import { IconAlert } from './Icons'
 export function ErrorDisplay({ error, onRetry, onLogout }) {
   const navigate = useNavigate()
   return (
-    <div
-      style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 40,
-        textAlign: 'center',
-        gap: 16,
-        minHeight: 240,
-      }}
-    >
-      <div style={{ color: 'rgb(var(--color-very-bad))' }}>
+    <div className="state-panel state-panel-error" role="alert">
+      <div className="state-panel-icon danger" aria-hidden="true">
         <IconAlert size={48} />
       </div>
-      <h3 style={{ fontSize: 'var(--font-size-20)', margin: 0 }}>
+      <h3>
         Impossible de charger les données
       </h3>
-      <p style={{ fontSize: 'var(--font-size-14)', color: 'rgb(var(--text-color-alt))', maxWidth: 420, margin: 0 }}>
+      <p>
         {error?.message || 'Une erreur est survenue.'}
       </p>
-      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'center' }}>
+      <div className="state-panel-action">
         {onRetry && (
           <button className="edp-btn" onClick={onRetry}>
             Réessayer

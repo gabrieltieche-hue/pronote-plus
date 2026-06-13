@@ -1,267 +1,358 @@
-import { useState, useEffect, useCallback } from 'react'
-import { fetchTimetable, configureApi } from '../services/api'
-import { useApp } from '../context/AppContext'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Header } from '../components/Header'
-import { Window, WindowHeader, WindowContent } from '../components/Window'
+import { Window, WindowContent, WindowHeader } from '../components/Window'
 import { LoadingCenter } from '../components/Loading'
 import { EmptyState } from '../components/EmptyState'
 import { ErrorDisplay } from '../components/ErrorDisplay'
-import { formatTime, formatDate } from '../utils/format'
+import { PageHeader, PageShell, SectionIntro } from '../components/PageShell'
+import { StatCard } from '../components/StatCard'
+import { fetchTimetable } from '../services/api'
+import { useApp } from '../context/AppContext'
+import { useApiAuth, useApiResource } from '../utils/hooks'
+import { Modal } from '../components/Modal'
+import { formatDate, formatTime, formatTimeRange } from '../utils/format'
+import {
+  formatWeekRange,
+  getDayLabels,
+  getDayLabelsMini,
+  getMondayOf,
+  getWeekRange,
+  groupLessonsByDay,
+  isSameDay,
+  isToday,
+  lessonColorFromSubject,
+  shiftWeek,
+} from '../utils/timetable'
+import {
+  IconAlert,
+  IconArrowLeft,
+  IconArrowRight,
+  IconBook,
+  IconCalendar,
+  IconClock,
+  IconMap,
+  IconUsers,
+} from '../components/Icons'
 
-const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
-const DAY_LABELS_SHORT = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam']
-const HOURS = Array.from({ length: 12 }, (_, i) => 8 + i) // 8h-20h
-
-function getMonday(d) {
-  const date = new Date(d)
-  const day = date.getDay()
-  const diff = date.getDate() - day + (day === 0 ? -6 : 1)
-  return new Date(date.setDate(diff))
-}
+const HOUR_START = 7
+const HOUR_END = 20
+const HOUR_HEIGHT = 68
+const DAY_COLUMN_MIN = 172
+const MOBILE_BREAKPOINT = 920
 
 export default function Timetable() {
+  useApiAuth()
   const navigate = useNavigate()
   const { token, logout } = useApp()
-  const [weekStart, setWeekStart] = useState(getMonday(new Date()))
-  const [lessons, setLessons] = useState([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState(null)
+  const [weekStart, setWeekStart] = useState(() => getMondayOf(new Date()))
+  const [showWeekend, setShowWeekend] = useState(false)
+  const [selectedLesson, setSelectedLesson] = useState(null)
   const [lastSync, setLastSync] = useState(null)
+  const [isCompact, setIsCompact] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.innerWidth < MOBILE_BREAKPOINT
+  })
 
   useEffect(() => {
-    configureApi({
-      getToken: () => token,
-      onUnauthorized: () => { logout(); navigate('/login', { replace: true }) },
-    })
-  }, [token, logout, navigate])
-
-  const load = useCallback(async () => {
-    if (!token) return
-    setLoading(true)
-    setError(null)
-    try {
-      const from = new Date(weekStart)
-      const to = new Date(weekStart)
-      to.setDate(to.getDate() + 7)
-      const data = await fetchTimetable(from.toISOString(), to.toISOString())
-      setLessons(data.lessons || [])
-      setLastSync(new Date().toISOString())
-    } catch (err) {
-      if (err?.status !== 401) setError(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [token, weekStart])
+    if (!token) navigate('/login', { replace: true })
+  }, [token, navigate])
 
   useEffect(() => {
-    if (!token) {
-      navigate('/login', { replace: true })
-      return
+    if (typeof window === 'undefined') return undefined
+    function onResize() {
+      setIsCompact(window.innerWidth < MOBILE_BREAKPOINT)
     }
-    load()
-  }, [token, load, navigate])
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [])
 
-  function changeWeek(delta) {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + delta * 7)
-    setWeekStart(d)
+  const daysCount = showWeekend ? 7 : 5
+
+  const fetcher = useCallback(() => {
+    const from = new Date(weekStart)
+    const to = new Date(weekStart)
+    to.setDate(to.getDate() + daysCount)
+    return fetchTimetable(from.toISOString(), to.toISOString())
+  }, [weekStart, daysCount])
+
+  const { data, loading, error, refetch } = useApiResource(fetcher, { deps: [token, weekStart, daysCount], skip: !token })
+
+  const lessons = data?.lessons || []
+  const { days, map } = useMemo(() => groupLessonsByDay(lessons, weekStart, daysCount), [lessons, weekStart, daysCount])
+
+  useEffect(() => {
+    if (data) setLastSync(new Date().toISOString())
+  }, [data])
+
+  async function handleRefresh() {
+    await refetch()
+    setLastSync(new Date().toISOString())
   }
 
-  function goToToday() {
-    setWeekStart(getMonday(new Date()))
-  }
-
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekEnd.getDate() + 6)
-
-  // Group lessons by day and hour
-  const lessonsByDay = {}
-  for (const l of lessons) {
-    if (!l.start) continue
-    const d = new Date(l.start)
-    const dayKey = d.toDateString()
-    if (!lessonsByDay[dayKey]) lessonsByDay[dayKey] = []
-    lessonsByDay[dayKey].push(l)
-  }
+  const weekRange = getWeekRange(weekStart)
+  const nextLesson = lessons
+    .filter((lesson) => new Date(lesson.end || lesson.start).getTime() >= Date.now())
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0] || null
+  const todayLessons = lessons.filter((lesson) => isSameDay(new Date(lesson.start), new Date()))
+  const totalHours = lessons.reduce((sum, lesson) => {
+    const start = new Date(lesson.start)
+    const end = new Date(lesson.end)
+    return sum + Math.max(0, (end - start) / 3600000)
+  }, 0)
+  const cancelledCount = lessons.filter((lesson) => lesson.isCancelled).length
 
   return (
-    <div className="windows-container" style={{ flexDirection: 'column', height: '100vh', minHeight: 0 }}>
-      <Header onRefresh={load} lastSync={lastSync} loading={loading} />
+    <PageShell>
+      <Header onRefresh={handleRefresh} lastSync={lastSync} loading={loading} />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10, margin: '16px 0', flexWrap: 'wrap' }}>
-        <button className="edp-btn-ghost" onClick={() => changeWeek(-1)}>← Semaine précédente</button>
-        <button className="edp-btn-ghost" onClick={goToToday}>Aujourd'hui</button>
-        <button className="edp-btn-ghost" onClick={() => changeWeek(1)}>Semaine suivante →</button>
-        <span style={{ fontSize: 'var(--font-size-14)', color: 'rgb(var(--text-color-alt))' }}>
-          Semaine du {formatDate(weekStart, { day: 'numeric', month: 'short' })} au {formatDate(weekEnd, { day: 'numeric', month: 'short' })}
-        </span>
+      <PageHeader
+        title="Emploi du temps"
+        description="La semaine entière reste lisible, les cours ressortent immédiatement et la vue mobile n essaie plus de forcer une grille qui casse."
+        meta={<span className="section-eyebrow">{formatWeekRange(weekRange.start, weekRange.end)}</span>}
+      >
+        <div className="dashboard-hero-grid">
+          <StatCard label="Cours affichés" value={lessons.length} sublabel={showWeekend ? 'Semaine complète' : 'Lundi à vendredi'} icon={<IconCalendar size={18} />} />
+          <StatCard label="Aujourd hui" value={todayLessons.length} sublabel={todayLessons.length > 0 ? 'Créneaux planifiés' : 'Aucun cours'} icon={<IconClock size={18} />} color="rgb(var(--color-average))" />
+          <StatCard label="Volume semaine" value={`${totalHours.toFixed(1)}h`} sublabel="Temps planifié" icon={<IconBook size={18} />} />
+          <StatCard label="Cours annulés" value={cancelledCount} sublabel={nextLesson ? `Prochain: ${nextLesson.subject}` : 'Aucun cours à venir'} icon={<IconAlert size={18} />} color={cancelledCount > 0 ? 'rgb(var(--color-very-bad))' : 'rgb(var(--color-good))'} />
+        </div>
+      </PageHeader>
+
+      <div className="toolbar-row">
+        <button type="button" className="edp-btn-ghost" onClick={() => setWeekStart((value) => shiftWeek(value, -1))}>
+          <IconArrowLeft size={14} /> Semaine précédente
+        </button>
+        <button type="button" className="edp-btn" onClick={() => setWeekStart(getMondayOf(new Date()))}>
+          <IconCalendar size={14} /> Revenir à aujourd hui
+        </button>
+        <button type="button" className="edp-btn-ghost" onClick={() => setWeekStart((value) => shiftWeek(value, 1))}>
+          Semaine suivante <IconArrowRight size={14} />
+        </button>
+        <label className="toolbar-checkbox">
+          <input type="checkbox" checked={showWeekend} onChange={(event) => setShowWeekend(event.target.checked)} />
+          <span>Afficher le week-end</span>
+        </label>
       </div>
 
-      {loading && <LoadingCenter message="Chargement de l'emploi du temps..." />}
+      {loading ? <LoadingCenter message="Chargement de l emploi du temps..." /> : null}
 
-      {error && !loading && (
-        <ErrorDisplay error={error} onRetry={load} onLogout={logout} />
-      )}
+      {error && !loading ? (
+        <Window>
+          <WindowContent>
+            <ErrorDisplay error={error} onRetry={handleRefresh} onLogout={logout} />
+          </WindowContent>
+        </Window>
+      ) : null}
 
-      {!loading && !error && (
-        <div className="windows-layout d-row animate-fade-in" style={{ flex: 1, minHeight: 0 }}>
-          <Window style={{ flex: 1 }}>
-            <WindowHeader><h2>🗓️ Emploi du temps</h2></WindowHeader>
+      {!loading && !error ? (
+        <div className="windows-layout d-column animate-fade-in">
+          <Window>
+            <WindowHeader>
+              <h2><IconCalendar size={18} /> {lessons.length === 0 ? 'Aucun cours cette semaine' : `${lessons.length} cours planifiés`}</h2>
+            </WindowHeader>
             <WindowContent>
+              <SectionIntro
+                eyebrow={isCompact ? 'Vue mobile' : 'Vue semaine'}
+                title={isCompact ? 'Agenda par jour' : 'Grille hebdomadaire'}
+                description={isCompact
+                  ? 'Chaque journée est déroulée verticalement pour garantir un rendu propre sur mobile et tablette compacte.'
+                  : 'Les cours utilisent un vrai positionnement continu dans la journée, sans disparaître derrière la grille.'}
+                align="start"
+              />
               {lessons.length === 0 ? (
                 <EmptyState
-                  icon="🎉"
-                  title="Pas de cours cette semaine"
-                  description="C'est les vacances, ou Pronote n'a aucun cours enregistré pour cette période."
+                  icon="✓"
+                  title="Pas de cours sur cette semaine"
+                  description="Pronote ne renvoie aucun cours dans l intervalle sélectionné."
+                  action={<button type="button" className="edp-btn-ghost" onClick={() => setWeekStart(getMondayOf(new Date()))}>Revenir à la semaine courante</button>}
                 />
+              ) : isCompact ? (
+                <CompactWeekView days={days} lessonsByDay={map} onLessonClick={setSelectedLesson} />
               ) : (
-                <div style={{ overflowX: 'auto' }}>
-                  <WeekGrid
-                    weekStart={weekStart}
-                    lessons={lessons}
-                  />
-                </div>
+                <DesktopWeekView days={days} lessonsByDay={map} onLessonClick={setSelectedLesson} />
               )}
             </WindowContent>
           </Window>
         </div>
-      )}
+      ) : null}
+
+      <LessonDetailModal lesson={selectedLesson} onClose={() => setSelectedLesson(null)} />
+    </PageShell>
+  )
+}
+
+function DesktopWeekView({ days, lessonsByDay, onLessonClick }) {
+  const dayLabels = getDayLabels()
+  const dayLabelsMini = getDayLabelsMini()
+  const gridHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT
+  const hours = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, index) => HOUR_START + index)
+
+  return (
+    <div className="tt-desktop-shell">
+      <div className="tt-hours-column" style={{ height: gridHeight + 58 }}>
+        <div className="tt-hours-spacer" />
+        {hours.map((hour) => (
+          <div key={hour} className="tt-hour-slot" style={{ top: (hour - HOUR_START) * HOUR_HEIGHT }}>
+            {String(hour).padStart(2, '0')}:00
+          </div>
+        ))}
+      </div>
+
+      <div className="tt-board" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(${DAY_COLUMN_MIN}px, 1fr))` }}>
+        {days.map((day) => (
+          <div key={day.toISOString()} className={isToday(day) ? 'tt-board-day is-today' : 'tt-board-day'}>
+            <div className="tt-board-head">
+              <span className="tt-board-head-mini">{dayLabelsMini[day.getDay()]}</span>
+              <strong>{dayLabels[day.getDay()]}</strong>
+              <span>{formatDate(day.toISOString(), { day: 'numeric', month: 'long' })}</span>
+            </div>
+            <DayTimeline
+              day={day}
+              lessons={lessonsByDay.get(day.toDateString()) || []}
+              gridHeight={gridHeight}
+              onLessonClick={onLessonClick}
+            />
+          </div>
+        ))}
+      </div>
     </div>
   )
 }
 
-function WeekGrid({ weekStart, lessons }) {
-  const days = Array.from({ length: 5 }, (_, i) => {
-    const d = new Date(weekStart)
-    d.setDate(d.getDate() + i)
-    return d
-  })
-
-  function getLessonsForDay(d) {
-    return lessons
-      .filter((l) => l.start && new Date(l.start).toDateString() === d.toDateString())
-      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
-  }
+function DayTimeline({ day, lessons, gridHeight, onLessonClick }) {
+  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
+  const isCurrentDay = isToday(day)
 
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: '60px repeat(5, 1fr)', gap: 4, minWidth: 600 }}>
-      {/* Header row */}
-      <div></div>
-      {days.map((d, i) => {
-        const isToday = d.toDateString() === new Date().toDateString()
+    <div className="tt-day-timeline" style={{ height: gridHeight }}>
+      {Array.from({ length: HOUR_END - HOUR_START }, (_, index) => (
+        <div key={index} className="tt-grid-line" style={{ top: index * HOUR_HEIGHT }} />
+      ))}
+
+      {isCurrentDay && nowMinutes >= HOUR_START * 60 && nowMinutes <= HOUR_END * 60 ? (
+        <div className="tt-now-indicator" style={{ top: ((nowMinutes - HOUR_START * 60) / 60) * HOUR_HEIGHT }}>
+          <span />
+        </div>
+      ) : null}
+
+      {lessons.map((lesson, index) => {
+        const start = new Date(lesson.start)
+        const end = new Date(lesson.end)
+        const startMinutes = start.getHours() * 60 + start.getMinutes()
+        const endMinutes = end.getHours() * 60 + end.getMinutes()
+        const top = ((startMinutes - HOUR_START * 60) / 60) * HOUR_HEIGHT
+        const height = Math.max(54, ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT)
         return (
-          <div
-            key={i}
-            style={{
-              textAlign: 'center',
-              padding: 8,
-              fontSize: 'var(--font-size-13)',
-              fontWeight: 'var(--font-weight-semi-bold)',
-              backgroundColor: isToday ? 'rgba(var(--border-color-0), 0.2)' : 'transparent',
-              borderRadius: 8,
-            }}
-          >
-            <div>{DAY_LABELS_SHORT[(d.getDay() + 6) % 7]}</div>
-            <div style={{ fontSize: 'var(--font-size-18)', fontWeight: 'var(--font-weight-extra-bold)' }}>
-              {d.getDate()}
-            </div>
-          </div>
+          <LessonCard
+            key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`}
+            lesson={lesson}
+            style={{ top, height }}
+            onClick={() => onLessonClick(lesson)}
+          />
         )
       })}
-
-      {/* Hour rows */}
-      {HOURS.map((h) => (
-        <>
-          <div key={`h-${h}`} style={{
-            fontSize: 'var(--font-size-12)',
-            color: 'rgb(var(--text-color-alt))',
-            textAlign: 'right',
-            padding: '4px 6px 0 0',
-            gridColumn: 1,
-            gridRow: 'auto',
-          }}>
-            {h}h
-          </div>
-          {days.map((d, dayIdx) => {
-            const dayLessons = getLessonsForDay(d).filter((l) => new Date(l.start).getHours() === h)
-            return (
-              <div
-                key={`c-${h}-${dayIdx}`}
-                style={{
-                  minHeight: 50,
-                  backgroundColor: 'rgb(var(--background-color-3))',
-                  borderRadius: 6,
-                  padding: 4,
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 2,
-                }}
-              >
-                {dayLessons.map((l, i) => (
-                  <LessonChip key={i} lesson={l} />
-                ))}
-              </div>
-            )
-          })}
-        </>
-      ))}
     </div>
   )
 }
 
-function LessonChip({ lesson }) {
-  if (lesson.isCancelled) {
-    return (
-      <div style={{
-        padding: '2px 6px',
-        borderRadius: 4,
-        backgroundColor: 'rgba(var(--color-very-bad-bg))',
-        color: 'rgb(var(--color-very-bad))',
-        fontSize: 'var(--font-size-12)',
-        textDecoration: 'line-through',
-        opacity: 0.7,
-      }}>
-        {lesson.subject}
-      </div>
-    )
-  }
-  if (lesson.isExempted) {
-    return (
-      <div style={{
-        padding: '2px 6px',
-        borderRadius: 4,
-        backgroundColor: 'rgba(var(--color-average-bg))',
-        color: 'rgb(var(--color-average))',
-        fontSize: 'var(--font-size-12)',
-        fontStyle: 'italic',
-      }}>
-        {lesson.subject} (dispense)
-      </div>
-    )
-  }
+function CompactWeekView({ days, lessonsByDay, onLessonClick }) {
+  const dayLabels = getDayLabels()
+
   return (
-    <div
-      title={`${lesson.subject}${lesson.teacher ? ' · ' + lesson.teacher : ''}${lesson.classroom ? ' · salle ' + lesson.classroom : ''}`}
+    <div className="tt-compact-stack">
+      {days.map((day) => {
+        const lessons = lessonsByDay.get(day.toDateString()) || []
+        return (
+          <section key={day.toISOString()} className={isToday(day) ? 'tt-compact-day is-today' : 'tt-compact-day'}>
+            <div className="tt-compact-head">
+              <div>
+                <strong>{dayLabels[day.getDay()]}</strong>
+                <span>{formatDate(day.toISOString(), { day: 'numeric', month: 'long' })}</span>
+              </div>
+              <span className="edp-pill">{lessons.length} cours</span>
+            </div>
+
+            {lessons.length > 0 ? (
+              <div className="tt-daylist">
+                {lessons.map((lesson, index) => (
+                  <div key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`} className="tt-daylist-item">
+                    <div className="tt-daylist-time">{formatTimeRange(lesson.start, lesson.end)}</div>
+                    <button type="button" className="tt-daylist-card" onClick={() => onLessonClick(lesson)}>
+                      <div className="dashboard-lesson-title">{lesson.subject}</div>
+                      <div className="dashboard-lesson-meta">
+                        {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || 'Cours'}
+                      </div>
+                      {lesson.isCancelled ? <span className="edp-pill danger">Annulé</span> : null}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <EmptyState icon="•" title="Aucun cours" description="Cette journée ne contient pas de créneau Pronote." />
+            )}
+          </section>
+        )
+      })}
+    </div>
+  )
+}
+
+function LessonCard({ lesson, style, onClick }) {
+  const color = lessonColorFromSubject(lesson.subject)
+  return (
+    <button
+      type="button"
+      className={lesson.isCancelled ? 'tt-lesson-card is-cancelled' : 'tt-lesson-card'}
+      onClick={onClick}
       style={{
-        padding: '2px 6px',
-        borderRadius: 4,
-        backgroundColor: lesson.isTest ? 'rgba(var(--color-bad-bg))' : 'rgba(var(--border-color-0), 0.5)',
-        color: 'rgb(var(--text-color-main))',
-        fontSize: 'var(--font-size-12)',
-        fontWeight: 'var(--font-weight-semi-bold)',
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap',
+        ...style,
+        background: color?.background,
+        borderColor: color?.border,
       }}
+      aria-label={`${lesson.subject || 'Cours'} de ${formatTime(lesson.start)} à ${formatTime(lesson.end)}`}
     >
-      {lesson.isTest && '📝 '}
-      {lesson.subject}
-      {lesson.classroom && (
-        <span style={{ fontWeight: 'var(--font-weight-regular)', opacity: 0.8, marginLeft: 4 }}>
-          · {lesson.classroom}
-        </span>
-      )}
+      <strong>{lesson.subject}</strong>
+      <span>{formatTimeRange(lesson.start, lesson.end)}</span>
+      {(lesson.teacher || lesson.classroom) ? (
+        <span>{[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ')}</span>
+      ) : null}
+    </button>
+  )
+}
+
+function LessonDetailModal({ lesson, onClose }) {
+  if (!lesson) return null
+
+  return (
+    <Modal open={!!lesson} onClose={onClose} title="Détail du cours" size="md">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: 'var(--font-size-20)', fontWeight: 'var(--font-weight-extra-bold)' }}>
+            {lesson.subject}
+          </h3>
+          {lesson.isCancelled ? <span className="edp-pill danger" style={{ marginTop: 8 }}>Cours annulé</span> : <span className="edp-pill" style={{ marginTop: 8 }}>Cours</span>}
+        </div>
+
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+          <InfoLine icon={<IconClock size={16} />} label="Horaire" value={formatTimeRange(lesson.start, lesson.end)} />
+          <InfoLine icon={<IconCalendar size={16} />} label="Date" value={formatDate(lesson.start, { weekday: 'long', day: 'numeric', month: 'long' })} />
+          {lesson.teacher ? <InfoLine icon={<IconUsers size={16} />} label="Professeur" value={lesson.teacher} /> : null}
+          {lesson.classroom ? <InfoLine icon={<IconMap size={16} />} label="Salle" value={lesson.classroom} /> : null}
+          {lesson.groupName ? <InfoLine icon={<IconBook size={16} />} label="Groupe" value={lesson.groupName} /> : null}
+        </div>
+      </div>
+    </Modal>
+  )
+}
+
+function InfoLine({ icon, label, value }) {
+  return (
+    <div>
+      <div style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))', display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+        {icon} {label}
+      </div>
+      <div style={{ fontSize: 'var(--font-size-14)', fontWeight: 'var(--font-weight-semi-bold)' }}>{value}</div>
     </div>
   )
 }

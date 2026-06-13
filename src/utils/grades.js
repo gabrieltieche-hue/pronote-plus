@@ -47,14 +47,35 @@ export function calcOverallAverage(subjects) {
   let totalWeighted = 0
   let totalCoeff = 0
   for (const s of subjects) {
-    if (s.coefficient == null || s.coefficient <= 0) continue
+    const subjectCoeff = Number.isFinite(Number(s.coefficient)) && Number(s.coefficient) > 0
+      ? Number(s.coefficient)
+      : 1
     const avg = s.studentAverage ?? calcSubjectAverage(s.grades)
     if (avg == null) continue
-    totalWeighted += avg * s.coefficient
-    totalCoeff += s.coefficient
+    totalWeighted += avg * subjectCoeff
+    totalCoeff += subjectCoeff
   }
   if (totalCoeff === 0) return null
   return Math.round((totalWeighted / totalCoeff) * 100) / 100
+}
+
+export function getSubjectAverage(subject) {
+  if (!subject) return null
+  return subject.studentAverage ?? calcSubjectAverage(subject.grades)
+}
+
+function getSubjectCoeff(subject) {
+  const coeff = Number(subject?.coefficient)
+  return Number.isFinite(coeff) && coeff > 0 ? coeff : 1
+}
+
+function getGradesCoeffSum(subject) {
+  const grades = subject?.grades || []
+  const sum = grades.reduce(
+    (acc, g) => acc + (Number.isFinite(Number(g.coefficient)) && Number(g.coefficient) > 0 ? Number(g.coefficient) : 1),
+    0
+  )
+  return sum > 0 ? sum : 1
 }
 
 /**
@@ -126,20 +147,17 @@ export function calcNeededGrade(subjects, subjectIndex, targetAverage, newGradeC
   for (let i = 0; i < subjects.length; i++) {
     if (i === subjectIndex) continue
     const s = subjects[i]
-    if (s.coefficient == null || s.coefficient <= 0) continue
-    const avg = s.studentAverage ?? calcSubjectAverage(s.grades)
+    const coeff = getSubjectCoeff(s)
+    const avg = getSubjectAverage(s)
     if (avg == null) continue
-    sumWeighted += avg * s.coefficient
-    sumCoeff += s.coefficient
+    sumWeighted += avg * coeff
+    sumCoeff += coeff
   }
 
   const targetSubject = subjects[subjectIndex]
-  const subCoeff = targetSubject.coefficient
-  const subAvg = targetSubject.studentAverage ?? calcSubjectAverage(targetSubject.grades)
-  const subExistingCoeff = (targetSubject.grades || []).reduce(
-    (acc, g) => acc + (Number.isFinite(g.coefficient) && g.coefficient > 0 ? g.coefficient : 1),
-    0
-  )
+  const subCoeff = getSubjectCoeff(targetSubject)
+  const subAvg = getSubjectAverage(targetSubject)
+  const subExistingCoeff = getGradesCoeffSum(targetSubject)
 
   // On veut : target = (sumWeighted + newSubjectWeighted) / (sumCoeff + subCoeff)
   // newSubjectWeighted = targetSubject.avg * subCoeff
@@ -152,8 +170,8 @@ export function calcNeededGrade(subjects, subjectIndex, targetAverage, newGradeC
   // x = (target * (sumCoeff + subCoeff) - sumWeighted) * y / subCoeff
   // N = (x - subAvg * subExistingCoeff) / gc
 
-  if (subCoeff == null || subCoeff <= 0) {
-    return { needed: null, achievable: false, current: subAvg, message: 'Matière sans coefficient' }
+  if (subAvg == null) {
+    return { needed: null, achievable: false, current: null, message: 'Matière sans moyenne exploitable' }
   }
 
   const targetSubjectContribution =
@@ -171,7 +189,9 @@ export function calcNeededGrade(subjects, subjectIndex, targetAverage, newGradeC
   } else if (achievable) {
     message = `Il te faut ${rounded}/20 au prochain devoir en ${targetSubject.name} (coeff ${gc}) pour atteindre ${target}/20 de moyenne générale.`
   } else {
-    message = `Même avec 20/20, l'objectif ${target}/20 est inatteignable. Le maximum est ${rounded}/20.`
+    const maxSubjectAvg = ((subAvg * subExistingCoeff) + (20 * gc)) / (subExistingCoeff + gc)
+    const maxOverall = (sumWeighted + maxSubjectAvg * subCoeff) / (sumCoeff + subCoeff)
+    message = `Même avec 20/20, l'objectif ${target}/20 est inatteignable. Le maximum atteignable est ${Math.round(maxOverall * 10) / 10}/20.`
   }
 
   return { needed: rounded, achievable, alreadyMet, current: subAvg, message }

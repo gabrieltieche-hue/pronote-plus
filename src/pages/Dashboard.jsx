@@ -1,587 +1,688 @@
-import { useState, useEffect, useCallback } from 'react'
-import { useNavigate, useParams, Link } from 'react-router-dom'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApp } from '../context/AppContext'
-import { fetchGrades, fetchPeriods, fetchUser, configureApi } from '../services/api'
-import { Window, WindowHeader, WindowContent } from '../components/Window'
+import {
+  fetchDiscussions,
+  fetchGrades,
+  fetchHomeworks,
+  fetchPeriods,
+  fetchTimetable,
+  fetchUser,
+  fetchVieScolaire,
+} from '../services/api'
 import { Header } from '../components/Header'
-import { GradeBadge } from '../components/GradeBadge'
+import { Window, WindowContent, WindowHeader } from '../components/Window'
+import { PageHeader, PageShell, SectionIntro } from '../components/PageShell'
+import { LoadingBlock } from '../components/Loading'
 import { EmptyState } from '../components/EmptyState'
-import { LoadingCenter, Skeleton } from '../components/Loading'
 import { ErrorDisplay } from '../components/ErrorDisplay'
-import { TrendChart } from '../components/TrendChart'
-import { calcSubjectAverage, calcOverallAverage, calcTotalGradeCount, calcNeededGrade, getGradeColorClass, getGradeLabel } from '../utils/grades'
-import { formatDate, formatNumber, pluralize } from '../utils/format'
-import { IconTarget, IconChart } from '../components/Icons'
+import { GradeBadge } from '../components/GradeBadge'
+import { StatCard } from '../components/StatCard'
+import { SubjectAvatar } from '../components/SubjectAvatar'
+import { useApiAuth, useApiResource } from '../utils/hooks'
+import {
+  formatDate,
+  formatNumber,
+  formatRelative,
+  formatTimeRange,
+  pluralize,
+} from '../utils/format'
+import {
+  calcOverallAverage,
+  calcSubjectAverage,
+  calcTotalGradeCount,
+} from '../utils/grades'
+import {
+  formatDurationMinutes,
+  totalDelayMinutes,
+  totalUnjustifiedAbsences,
+} from '../utils/vie-scolaire'
+import {
+  IconAlert,
+  IconArrowRight,
+  IconBook,
+  IconCalendar,
+  IconChart,
+  IconCheck,
+  IconClipboard,
+  IconClock,
+  IconInbox,
+  IconMail,
+  IconSchool,
+  IconSparkles,
+} from '../components/Icons'
 
 export default function Dashboard() {
+  useApiAuth()
   const navigate = useNavigate()
-  const { subjectName } = useParams()
-  const { token, setUser, logout } = useApp()
-
-  const [apiData, setApiData] = useState(null)
-  const [periods, setPeriods] = useState([])
+  const { token, setUser, addToast, logout } = useApp()
   const [selectedPeriod, setSelectedPeriod] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [apiError, setApiError] = useState(null)
   const [lastSync, setLastSync] = useState(null)
-  const [userInfo, setUserInfo] = useState(null)
 
-  // Configure API once
   useEffect(() => {
-    configureApi({
-      getToken: () => token,
-      onUnauthorized: () => {
-        logout()
-        navigate('/login', { replace: true })
-      },
-    })
-  }, [token, logout, navigate])
+    if (!token) navigate('/login', { replace: true })
+  }, [token, navigate])
 
-  // Redirect if no token
+  const userFetcher = useCallback(() => fetchUser().catch(() => null), [])
+  const { data: userData, refetch: refetchUser } = useApiResource(userFetcher, { deps: [token], skip: !token })
+
   useEffect(() => {
-    if (!token) {
-      navigate('/login', { replace: true })
-      return
-    }
-    let cancelled = false
-    async function loadInitial() {
-      try {
-        const [user, periodsData] = await Promise.all([
-          fetchUser().catch(() => null),
-          fetchPeriods().catch((e) => { throw e }),
-        ])
-        if (cancelled) return
-        if (user) {
-          setUserInfo(user)
-          setUser(user)
-        }
-        const list = Array.isArray(periodsData) ? periodsData : (periodsData?.periods || [])
-        setPeriods(list)
-        if (list.length > 0) {
-          setSelectedPeriod(periodsData?.defaultPeriodId || list[0].id)
-        }
-      } catch (err) {
-        if (cancelled) return
-        if (err?.status === 401) return
-        setApiError(err)
-        setLoading(false)
-      }
-    }
-    loadInitial()
-    return () => { cancelled = true }
-  }, [token, navigate, setUser])
+    if (userData) setUser(userData)
+  }, [userData, setUser])
 
-  // Load grades when period changes
+  const periodsFetcher = useCallback(() => fetchPeriods(), [])
+  const { data: periodsData, loading: periodsLoading, error: periodsError, refetch: refetchPeriods } = useApiResource(
+    periodsFetcher,
+    { deps: [token], skip: !token }
+  )
+
   useEffect(() => {
-    if (!token || !selectedPeriod) return
-    let cancelled = false
-    async function load() {
-      setLoading(true)
-      setApiError(null)
-      try {
-        const data = await fetchGrades(selectedPeriod)
-        if (cancelled) return
-        setApiData(data)
-        setLastSync(new Date().toISOString())
-      } catch (err) {
-        if (cancelled) return
-        if (err?.status === 401) return
-        setApiError(err)
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    }
-    load()
-    return () => { cancelled = true }
-  }, [token, selectedPeriod])
+    if (!periodsData || selectedPeriod) return
+    const list = Array.isArray(periodsData) ? periodsData : (periodsData?.periods || [])
+    if (list.length > 0) setSelectedPeriod(periodsData?.defaultPeriodId || list[0].id)
+  }, [periodsData, selectedPeriod])
 
-  const loadGrades = useCallback(async () => {
-    if (!token || !selectedPeriod) return
-    setLoading(true)
-    setApiError(null)
-    try {
-      const data = await fetchGrades(selectedPeriod)
-      setApiData(data)
-      setLastSync(new Date().toISOString())
-    } catch (err) {
-      if (err?.status !== 401) setApiError(err)
-    } finally {
-      setLoading(false)
-    }
-  }, [token, selectedPeriod])
+  const periods = useMemo(() => {
+    if (Array.isArray(periodsData)) return periodsData
+    return periodsData?.periods || []
+  }, [periodsData])
 
-  // If a subject is specified in URL, show detail view
-  if (subjectName) {
-    const decodedName = decodeURIComponent(subjectName)
-    const subject = (apiData?.subjects || []).find((s) => s.name === decodedName)
-    if (subject) {
-      return <SubjectDetail subject={subject} onBack={() => navigate('/app')} />
-    }
+  const gradesFetcher = useCallback(() => {
+    if (!selectedPeriod) return Promise.resolve(null)
+    return fetchGrades(selectedPeriod).catch(() => null)
+  }, [selectedPeriod])
+  const { data: gradesData, loading: gradesLoading, refetch: refetchGrades } = useApiResource(
+    gradesFetcher,
+    { deps: [token, selectedPeriod], skip: !token || !selectedPeriod }
+  )
+
+  const timetableFetcher = useCallback(() => {
+    const from = new Date()
+    from.setHours(0, 0, 0, 0)
+    const to = new Date(from)
+    to.setDate(to.getDate() + 7)
+    to.setHours(23, 59, 59, 999)
+    return fetchTimetable(from.toISOString(), to.toISOString()).catch(() => null)
+  }, [])
+  const { data: timetableData, loading: timetableLoading, error: timetableError, refetch: refetchTimetable } = useApiResource(
+    timetableFetcher,
+    { deps: [token], skip: !token }
+  )
+
+  const homeworkFetcher = useCallback(() => {
+    const from = new Date()
+    from.setHours(0, 0, 0, 0)
+    from.setDate(from.getDate() - 7)
+    const to = new Date(from)
+    to.setDate(to.getDate() + 45)
+    return fetchHomeworks(from.toISOString(), to.toISOString()).catch(() => null)
+  }, [])
+  const { data: homeworksData, loading: homeworksLoading, error: homeworksError, refetch: refetchHomeworks } = useApiResource(
+    homeworkFetcher,
+    { deps: [token], skip: !token }
+  )
+
+  const vieScolaireFetcher = useCallback(() => fetchVieScolaire().catch(() => null), [])
+  const { data: vieScolaireData, loading: vieScolaireLoading, error: vieScolaireError, refetch: refetchVieScolaire } = useApiResource(
+    vieScolaireFetcher,
+    { deps: [token], skip: !token }
+  )
+
+  const discussionsFetcher = useCallback(() => fetchDiscussions().catch(() => []), [])
+  const { data: discussionsRaw, loading: discussionsLoading, error: discussionsError, refetch: refetchDiscussions } = useApiResource(
+    discussionsFetcher,
+    { deps: [token], skip: !token }
+  )
+
+  const discussions = useMemo(() => {
+    if (Array.isArray(discussionsRaw)) return discussionsRaw
+    if (Array.isArray(discussionsRaw?.discussions)) return discussionsRaw.discussions
+    return []
+  }, [discussionsRaw])
+
+  async function handleRefresh() {
+    await Promise.allSettled([
+      refetchUser(),
+      refetchPeriods(),
+      refetchGrades(),
+      refetchTimetable(),
+      refetchHomeworks(),
+      refetchVieScolaire(),
+      refetchDiscussions(),
+    ])
+    setLastSync(new Date().toISOString())
+    addToast({ type: 'success', title: 'Tableau de bord actualisé' })
   }
 
-  const subjects = apiData?.subjects || []
-  const overallAvg = apiData?.overallAverage ?? null
-  const classAvg = apiData?.classAverage ?? null
-  const periodName = apiData?.period?.name || ''
+  useEffect(() => {
+    if (gradesData || timetableData || homeworksData || vieScolaireData || discussionsRaw) {
+      setLastSync(new Date().toISOString())
+    }
+  }, [gradesData, timetableData, homeworksData, vieScolaireData, discussionsRaw])
+
+  const lessons = timetableData?.lessons || []
+  const now = new Date()
+  const todayStart = new Date()
+  todayStart.setHours(0, 0, 0, 0)
+  const todayEnd = new Date(todayStart)
+  todayEnd.setHours(23, 59, 59, 999)
+  const todayLessons = lessons
+    .filter((lesson) => {
+      const start = new Date(lesson.start)
+      return start >= todayStart && start <= todayEnd
+    })
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())
+  const nextLesson = lessons
+    .filter((lesson) => new Date(lesson.end || lesson.start).getTime() >= now.getTime())
+    .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime())[0] || null
+
+  const homeworks = homeworksData?.homeworks || []
+  const pendingHomeworks = homeworks.filter((homework) => !homework.done)
+  const overdueHomeworks = pendingHomeworks.filter((homework) => homework.forDate && new Date(homework.forDate) < todayStart)
+  const dueSoonHomeworks = pendingHomeworks
+    .filter((homework) => !homework.forDate || new Date(homework.forDate) >= todayStart)
+    .sort((a, b) => {
+      if (!a.forDate) return 1
+      if (!b.forDate) return -1
+      return new Date(a.forDate).getTime() - new Date(b.forDate).getTime()
+    })
+    .slice(0, 5)
+
+  const subjects = gradesData?.subjects || []
+  const overallAvg = gradesData?.overallAverage ?? calcOverallAverage(subjects)
   const totalGrades = calcTotalGradeCount(subjects)
+  const latestGrades = subjects
+    .flatMap((subject) => (subject.grades || []).map((grade) => ({ ...grade, subjectName: subject.name })))
+    .filter((grade) => grade.value != null)
+    .sort((a, b) => {
+      if (!a.date) return 1
+      if (!b.date) return -1
+      return new Date(b.date).getTime() - new Date(a.date).getTime()
+    })
+    .slice(0, 5)
+
+  const absences = vieScolaireData?.absences || []
+  const delays = vieScolaireData?.delays || []
+  const punishments = vieScolaireData?.punishments || []
+  const observations = vieScolaireData?.observations || []
+  const unreadCount = discussions.filter((discussion) => discussion.unread).length
+  const totalAlerts =
+    overdueHomeworks.length +
+    totalUnjustifiedAbsences(absences) +
+    punishments.length +
+    unreadCount
+
+  const alerts = [
+    overdueHomeworks.length > 0 ? {
+      tone: 'danger',
+      title: `${overdueHomeworks.length} devoir${pluralize(overdueHomeworks.length, '', 's')} en retard`,
+      description: 'Reprends les devoirs dépassés pour éviter de les perdre dans la semaine.',
+      action: { label: 'Voir les devoirs', to: '/homeworks' },
+    } : null,
+    totalUnjustifiedAbsences(absences) > 0 ? {
+      tone: 'danger',
+      title: `${totalUnjustifiedAbsences(absences)} absence${pluralize(totalUnjustifiedAbsences(absences), '', 's')} non justifiée${pluralize(totalUnjustifiedAbsences(absences), '', 's')}`,
+      description: 'La vie scolaire demande probablement une justification parentale.',
+      action: { label: 'Ouvrir la vie scolaire', to: '/vie-scolaire' },
+    } : null,
+    unreadCount > 0 ? {
+      tone: 'warn',
+      title: `${unreadCount} message${pluralize(unreadCount, '', 's')} non lu${pluralize(unreadCount, '', 's')}`,
+      description: 'Des discussions récentes attendent une lecture ou une réponse.',
+      action: { label: 'Aller en messagerie', to: '/messaging' },
+    } : null,
+    nextLesson ? {
+      tone: 'info',
+      title: `Prochain cours: ${nextLesson.subject}`,
+      description: `${formatTimeRange(nextLesson.start, nextLesson.end)}${nextLesson.classroom ? ` · ${nextLesson.classroom}` : ''}`,
+      action: { label: "Voir l'emploi du temps", to: '/timetable' },
+    } : null,
+  ].filter(Boolean)
+
+  const loading =
+    periodsLoading ||
+    (gradesLoading && !gradesData) ||
+    (timetableLoading && !timetableData) ||
+    (homeworksLoading && !homeworksData) ||
+    (vieScolaireLoading && !vieScolaireData) ||
+    (discussionsLoading && !discussionsRaw)
+  const error = periodsError || timetableError || homeworksError || vieScolaireError || discussionsError
 
   return (
-    <div className="windows-container" style={{ flexDirection: 'column', height: '100vh', minHeight: 0 }}>
-      <div style={{ flexShrink: 0 }}>
-        <Header onRefresh={loadGrades} lastSync={lastSync} loading={loading} />
+    <PageShell>
+      <Header onRefresh={handleRefresh} lastSync={lastSync} loading={loading} />
 
-        {/* Period Selector */}
-        {periods.length > 0 && (
-          <div className="period-selector" style={{ marginTop: 16, marginBottom: 8 }}>
-            <label style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))' }}>
-              Période :
+      <PageHeader
+        title="Tableau de bord"
+        description="La journée, les urgences et les modules principaux sont regroupés ici pour éviter d'arriver directement dans les notes."
+        meta={<span className="section-eyebrow">{userData?.class || 'Vue du jour'}</span>}
+        actions={periods.length > 0 ? (
+          <>
+            <label htmlFor="dashboard-period" style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))' }}>
+              Période
             </label>
-            <select value={selectedPeriod} onChange={(e) => setSelectedPeriod(e.target.value)}>
-              {periods.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
+            <select
+              id="dashboard-period"
+              value={selectedPeriod}
+              onChange={(event) => setSelectedPeriod(event.target.value)}
+              className="edp-input"
+              style={{ minWidth: 210, padding: '8px 10px' }}
+            >
+              {periods.map((period) => (
+                <option key={period.id} value={period.id}>{period.name}</option>
               ))}
             </select>
-            {apiData?.period?.start && apiData?.period?.end && (
-              <span style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))' }}>
-                du {formatDate(apiData.period.start, { day: 'numeric', month: 'short' })} au {formatDate(apiData.period.end, { day: 'numeric', month: 'short' })}
-              </span>
-            )}
+          </>
+        ) : null}
+      >
+        <div className="dashboard-hero-grid">
+          <StatCard
+            label="Prochain cours"
+            value={nextLesson?.subject || 'Aucun'}
+            sublabel={nextLesson ? formatRelative(nextLesson.start) : 'Fin de journée'}
+            icon={<IconCalendar size={18} />}
+            color="rgb(var(--border-color-0))"
+          />
+          <StatCard
+            label="Aujourd'hui"
+            value={todayLessons.length}
+            sublabel={todayLessons.length > 0 ? `${todayLessons[0]?.subject || 'Cours'} en premier` : 'Aucun créneau prévu'}
+            icon={<IconClock size={18} />}
+            color="rgb(var(--color-average))"
+          />
+          <StatCard
+            label="Devoirs actifs"
+            value={pendingHomeworks.length}
+            sublabel={overdueHomeworks.length > 0 ? `${overdueHomeworks.length} en retard` : 'Rien de bloquant'}
+            icon={<IconClipboard size={18} />}
+            color={overdueHomeworks.length > 0 ? 'rgb(var(--color-very-bad))' : 'rgb(var(--color-good))'}
+          />
+          <StatCard
+            label="Notifications"
+            value={totalAlerts}
+            sublabel={unreadCount > 0 ? `${unreadCount} message${pluralize(unreadCount, '', 's')} non lu${pluralize(unreadCount, '', 's')}` : 'Aucune critique'}
+            icon={<IconMail size={18} />}
+            color={totalAlerts > 0 ? 'rgb(var(--color-average))' : 'rgb(var(--color-good))'}
+          />
+        </div>
+      </PageHeader>
+
+      {error && !loading ? (
+        <Window>
+          <WindowContent>
+            <ErrorDisplay error={error} onRetry={handleRefresh} onLogout={logout} />
+          </WindowContent>
+        </Window>
+      ) : null}
+
+      {loading && !error ? (
+        <div className="windows-layout d-column">
+          <Window><WindowContent><LoadingBlock lines={4} /></WindowContent></Window>
+          <div className="windows-layout d-row">
+            <Window><WindowContent><LoadingBlock lines={4} /></WindowContent></Window>
+            <Window><WindowContent><LoadingBlock lines={4} /></WindowContent></Window>
           </div>
-        )}
-      </div>
-
-      {/* Loading */}
-      {loading && !apiData && (
-        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 16, padding: '8px 0' }}>
-          <Skeleton height={120} radius={15} />
-          <Skeleton height={200} radius={15} />
-          <Skeleton height={200} radius={15} />
         </div>
-      )}
+      ) : null}
 
-      {/* Error */}
-      {apiError && !loading && (
-        <ErrorDisplay
-          error={apiError}
-          onRetry={loadGrades}
-          onLogout={logout}
-        />
-      )}
-
-      {/* Content */}
-      {!loading && !apiError && (
-        <div className="windows-layout d-column animate-fade-in" style={{ flex: 1, minHeight: 0 }}>
-          {/* General Average Window */}
-          <Window style={{ flex: '0 0 auto' }}>
-            <WindowHeader>
-              <h2>📊 Moyenne générale — {periodName || 'Période en cours'}</h2>
-            </WindowHeader>
-            <WindowContent>
-              <div className="general-average">
-                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8 }}>
-                  <span style={{
-                    padding: '8px 24px',
-                    borderRadius: 12,
-                    background: 'rgb(var(--border-color-0))',
-                    color: 'rgb(var(--text-color-main))',
-                    fontSize: 'var(--font-size-32)',
-                    fontWeight: 'var(--font-weight-extra-bold)',
-                    display: 'inline-block',
-                    lineHeight: 1.3,
-                  }}>
-                    {formatNumber(overallAvg)}<span style={{ fontSize: 'var(--font-size-16)', fontWeight: 'var(--font-weight-regular)', opacity: 0.7 }}>/20</span>
-                  </span>
-                  {overallAvg != null && (
-                    <span style={{
-                      fontSize: 'var(--font-size-14)',
-                      color: overallAvg >= 10 ? 'rgb(var(--color-good))' : 'rgb(var(--color-very-bad))',
-                      fontWeight: 'var(--font-weight-semi-bold)',
-                    }}>
-                      {overallAvg >= 10 ? '✅ Passable' : '⚠️ Insuffisant'}
-                    </span>
-                  )}
-                  {classAvg != null && overallAvg != null && (
-                    <span style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))' }}>
-                      Moyenne de classe : {formatNumber(classAvg)}/20
-                      {(() => {
-                        const diff = overallAvg - classAvg
-                        const sign = diff > 0 ? '+' : ''
-                        return ` (${sign}${diff.toFixed(1)})`
-                      })()}
-                    </span>
-                  )}
-                  {totalGrades > 0 && (
-                    <span className="edp-pill">
-                      📝 {totalGrades} note{pluralize(totalGrades, '', 's')}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </WindowContent>
-          </Window>
-
-          {/* Grades Table Window */}
-          <Window>
-            <WindowHeader>
-              <h2>📚 Notes — {subjects.length} matière{pluralize(subjects.length, '', 's')}</h2>
-            </WindowHeader>
-            <WindowContent>
-              {subjects.length === 0 ? (
-                <EmptyState
-                  icon="📭"
-                  title="Aucune matière"
-                  description="Aucune matière n'a été trouvée pour cette période. Essaie une autre période ou contacte le support."
+      {!loading && !error ? (
+        <div className="windows-layout d-column animate-fade-in" style={{ gap: 'clamp(20px, 3vw, 28px)' }}>
+          <div className="windows-layout d-row dashboard-main-grid">
+            <Window style={{ flex: 1.15 }}>
+              <WindowHeader>
+                <h2><IconCalendar size={18} /> Aujourd hui</h2>
+              </WindowHeader>
+              <WindowContent>
+                <SectionIntro
+                  eyebrow="Journee"
+                  title="Ce qui arrive aujourd'hui"
+                  description="Les cours restants restent visibles en premier, avec leur horaire, la salle et l enseignant."
+                  align="start"
                 />
-              ) : (
-                <GradesTable subjects={subjects} onSubjectClick={(name) => navigate(`/app/subject/${encodeURIComponent(name)}`)} />
-              )}
-            </WindowContent>
-          </Window>
-
-          {/* Detailed Grades Window */}
-          <Window>
-            <WindowHeader>
-              <h2>📋 Détail des notes</h2>
-            </WindowHeader>
-            <WindowContent>
-              {subjects.length === 0 ? (
-                <EmptyState icon="📭" title="Aucune note" />
-              ) : (
-                <GradesDetail subjects={subjects} onSubjectClick={(name) => navigate(`/app/subject/${encodeURIComponent(name)}`)} />
-              )}
-            </WindowContent>
-          </Window>
-
-          {/* Simulator */}
-          <Window style={{ flex: '0 0 auto' }}>
-            <WindowHeader>
-              <h2><IconTarget size={18} /> Simulateur</h2>
-            </WindowHeader>
-            <WindowContent>
-              <Simulator subjects={subjects} />
-            </WindowContent>
-          </Window>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function GradesTable({ subjects, onSubjectClick }) {
-  return (
-    <table className="grades-table">
-      <thead>
-        <tr>
-          <th className="head-cell" style={{ textAlign: 'left', paddingBottom: 6 }}>Matière</th>
-          <th className="head-cell moyennes-col" colSpan={2} style={{ textAlign: 'center', paddingBottom: 6 }}>
-            Moyennes
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {subjects.map((subject) => {
-          const avg = subject.studentAverage ?? calcSubjectAverage(subject.grades)
-          const classAvg = subject.classAverage
-          const avgDiff = avg != null && classAvg != null ? avg - classAvg : null
-          return (
-            <tr key={subject.name} className="subject-row">
-              <td className="head-name" onClick={() => onSubjectClick(subject.name)}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                  <SubjectAvatar name={subject.name} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ fontWeight: 'var(--font-weight-semi-bold)', fontSize: 'var(--font-size-15)' }}>
-                      {subject.name}
-                    </div>
-                    <div style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))' }}>
-                      Coeff {subject.coefficient ?? '?'} · {subject.grades?.length || 0} note{pluralize(subject.grades?.length || 0, '', 's')}
-                    </div>
+                {todayLessons.length > 0 ? (
+                  <div className="dashboard-day-list">
+                    {todayLessons.map((lesson, index) => (
+                      <LessonDigest key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`} lesson={lesson} />
+                    ))}
                   </div>
-                </div>
-              </td>
-              <td className="moyenne-cell" style={{ borderRadius: avgDiff !== null ? '8px 0 0 8px' : '8px' }}>
-                <span style={{ fontWeight: 'var(--font-weight-extra-bold)', fontSize: 'var(--font-size-20)' }}>
-                  {formatNumber(avg)}
-                </span>
-              </td>
-              {avgDiff !== null ? (
-                <td className="moyenne-cell" style={{ borderRadius: '0 8px 8px 0', opacity: 0.85 }}>
-                  <span className={`grade-arrow ${getArrowDirection(avgDiff)}`} />
-                  <span style={{ fontSize: 'var(--font-size-13)' }}>{formatNumber(classAvg)}</span>
-                </td>
-              ) : null}
-            </tr>
-          )
-        })}
-      </tbody>
-    </table>
+                ) : (
+                  <EmptyState
+                    icon="✓"
+                    title="Aucun cours aujourd'hui"
+                    description="La journée ne contient pas de créneau Pronote. Passe sur l'emploi du temps pour consulter le reste de la semaine."
+                    action={<button type="button" className="edp-btn-ghost" onClick={() => navigate('/timetable')}>Ouvrir l'emploi du temps</button>}
+                  />
+                )}
+              </WindowContent>
+            </Window>
+
+            <Window style={{ flex: 0.85 }}>
+              <WindowHeader>
+                <h2><IconAlert size={18} /> Priorités</h2>
+              </WindowHeader>
+              <WindowContent>
+                <SectionIntro
+                  eyebrow="Attention"
+                  title="Les points qui demandent une action"
+                  description="Le tableau de bord remonte d abord ce qui mérite un clic maintenant."
+                  align="start"
+                />
+                <AlertStack alerts={alerts} onNavigate={navigate} />
+              </WindowContent>
+            </Window>
+          </div>
+
+          <div className="windows-layout d-row dashboard-detail-grid">
+            <Window style={{ flex: 0.95 }}>
+              <WindowHeader>
+                <h2><IconClipboard size={18} /> Devoirs à rendre</h2>
+              </WindowHeader>
+              <WindowContent>
+                <SectionIntro
+                  eyebrow="Travail"
+                  title="Les prochains rendus"
+                  description="Les devoirs urgents et proches restent séparés pour réduire la charge cognitive."
+                  align="start"
+                />
+                <HomeworkDigestList items={dueSoonHomeworks} overdueCount={overdueHomeworks.length} onOpen={() => navigate('/homeworks')} />
+              </WindowContent>
+            </Window>
+
+            <Window style={{ flex: 1.05 }}>
+              <WindowHeader>
+                <h2><IconChart size={18} /> Dernières notes</h2>
+              </WindowHeader>
+              <WindowContent>
+                <SectionIntro
+                  eyebrow="Résultats"
+                  title="La période bouge comment ?"
+                  description="Les dernières évaluations restent visibles avant de basculer dans le module complet de notes."
+                  align="start"
+                />
+                <LatestGradesPanel
+                  grades={latestGrades}
+                  overallAvg={overallAvg}
+                  totalGrades={totalGrades}
+                  onOpen={() => navigate('/grades')}
+                />
+              </WindowContent>
+            </Window>
+          </div>
+
+          <div className="windows-layout d-row dashboard-detail-grid">
+            <Window style={{ flex: 0.95 }}>
+              <WindowHeader>
+                <h2><IconSchool size={18} /> Vie scolaire</h2>
+              </WindowHeader>
+              <WindowContent>
+                <SectionIntro
+                  eyebrow="Suivi"
+                  title="Lecture rapide des statuts"
+                  description="Absences, retards et sanctions sont ramenés à une synthèse exploitable."
+                  align="start"
+                />
+                <VieScolaireDigest
+                  absences={absences}
+                  delays={delays}
+                  punishments={punishments}
+                  observations={observations}
+                  onOpen={() => navigate('/vie-scolaire')}
+                />
+              </WindowContent>
+            </Window>
+
+            <Window style={{ flex: 1.05 }}>
+              <WindowHeader>
+                <h2><IconInbox size={18} /> Raccourcis</h2>
+              </WindowHeader>
+              <WindowContent>
+                <SectionIntro
+                  eyebrow="Navigation"
+                  title="Les modules principaux restent à portée"
+                  description="Tu dois pouvoir repartir du tableau de bord vers n importe quel module sans hésiter."
+                  align="start"
+                />
+                <QuickLinks
+                  unreadCount={unreadCount}
+                  onNavigate={navigate}
+                  messagePreview={discussions[0]?.subject || discussions[0]?.preview || ''}
+                />
+              </WindowContent>
+            </Window>
+          </div>
+        </div>
+      ) : null}
+    </PageShell>
   )
 }
 
-function GradesDetail({ subjects, onSubjectClick }) {
+function LessonDigest({ lesson }) {
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-      {subjects.map((subject) => {
-        const avg = subject.studentAverage ?? calcSubjectAverage(subject.grades)
-        return (
-          <div key={subject.name} onClick={() => onSubjectClick(subject.name)} style={{ cursor: 'pointer' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, gap: 8, flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 'var(--font-weight-semi-bold)', fontSize: 'var(--font-size-16)' }}>
-                {subject.name}
-                <span style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', marginLeft: 8, fontWeight: 'var(--font-weight-regular)' }}>
-                  Coeff {subject.coefficient ?? '?'} · {subject.grades?.length || 0} note{pluralize(subject.grades?.length || 0, '', 's')}
-                </span>
-              </span>
-              <span style={{ fontWeight: 'var(--font-weight-extra-bold)', fontSize: 'var(--font-size-18)' }}>
-                {formatNumber(avg)}
-              </span>
-            </div>
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-              {(subject.grades || []).map((grade, gi) => (
-                <GradeBadge
-                  key={gi}
-                  value={grade.value}
-                  outOf={grade.outOf}
-                  coefficient={grade.coefficient}
-                  name={grade.name}
-                  date={grade.date}
-                />
-              ))}
-              {(!subject.grades || subject.grades.length === 0) && (
-                <span style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))' }}>Aucune note</span>
-              )}
+    <div className="dashboard-lesson-card">
+      <div className="dashboard-lesson-time">
+        <span>{formatTimeRange(lesson.start, lesson.end)}</span>
+      </div>
+      <div className="dashboard-lesson-main">
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+          <SubjectAvatar name={lesson.subject} size={36} />
+          <div style={{ minWidth: 0 }}>
+            <div className="dashboard-lesson-title">{lesson.subject}</div>
+            <div className="dashboard-lesson-meta">
+              {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || 'Informations de cours'}
             </div>
           </div>
-        )
-      })}
+        </div>
+        {lesson.isCancelled ? <span className="edp-pill danger">Annulé</span> : null}
+      </div>
     </div>
   )
 }
 
-function Simulator({ subjects }) {
-  const [target, setTarget] = useState('')
-  const [subjectIdx, setSubjectIdx] = useState(0)
-  const [newGradeCoeff, setNewGradeCoeff] = useState(1)
-  const [result, setResult] = useState(null)
-
-  useEffect(() => {
-    setResult(null)
-  }, [target, subjectIdx, newGradeCoeff])
-
-  function calculate() {
-    if (!subjects.length) return
-    const idx = Math.max(0, Math.min(parseInt(subjectIdx) || 0, subjects.length - 1))
-    const r = calcNeededGrade(subjects, idx, parseFloat(target), parseFloat(newGradeCoeff) || 1)
-    setResult(r)
-  }
-
-  if (!subjects.length) {
+function AlertStack({ alerts, onNavigate }) {
+  if (!alerts.length) {
     return (
       <EmptyState
-        icon="🎯"
-        title="Pas de matières"
-        description="Connecte-toi à un Pronote avec des notes pour utiliser le simulateur."
+        icon="✓"
+        title="Rien de critique"
+        description="Le tableau de bord ne détecte aucune alerte importante pour le moment."
       />
     )
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 12, padding: 4 }}>
-      <p style={{ fontSize: 'var(--font-size-14)', color: 'rgb(var(--text-color-alt))', margin: 0, lineHeight: 1.4 }}>
-        🎯 Combien faut-il au prochain DS pour atteindre ta moyenne cible ?
-      </p>
-
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
-        <div>
-          <label style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', display: 'block', marginBottom: 4 }}>
-            Objectif de moyenne générale
-          </label>
-          <input
-            type="number"
-            min="0"
-            max="20"
-            step="0.5"
-            value={target}
-            onChange={(e) => setTarget(e.target.value)}
-            placeholder="ex: 15"
-            className="edp-input"
-          />
+    <div className="dashboard-alert-list">
+      {alerts.map((alert) => (
+        <div key={alert.title} className={`dashboard-alert-card is-${alert.tone}`}>
+          <div>
+            <strong>{alert.title}</strong>
+            <p>{alert.description}</p>
+          </div>
+          {alert.action ? (
+            <button type="button" className="edp-btn-ghost" onClick={() => onNavigate(alert.action.to)}>
+              {alert.action.label}
+            </button>
+          ) : null}
         </div>
-        <div>
-          <label style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', display: 'block', marginBottom: 4 }}>
-            Matière
-          </label>
-          <select value={subjectIdx} onChange={(e) => setSubjectIdx(e.target.value)} className="edp-input">
-            {subjects.map((s, i) => {
-              const avg = s.studentAverage ?? calcSubjectAverage(s.grades)
-              return (
-                <option key={i} value={i}>
-                  {s.name}{avg != null ? ` (${formatNumber(avg)})` : ''}
-                </option>
-              )
-            })}
-          </select>
-        </div>
-        <div>
-          <label style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', display: 'block', marginBottom: 4 }}>
-            Coeff du nouveau devoir
-          </label>
-          <input
-            type="number"
-            min="0.1"
-            max="20"
-            step="0.5"
-            value={newGradeCoeff}
-            onChange={(e) => setNewGradeCoeff(e.target.value)}
-            placeholder="1"
-            className="edp-input"
-          />
-        </div>
-      </div>
-
-      <button onClick={calculate} disabled={!target} className="edp-btn" style={{ alignSelf: 'flex-start' }}>
-        Calculer
-      </button>
-
-      {result && result.needed != null && (
-        <div
-          className={`edp-alert ${result.alreadyMet ? 'success' : result.achievable ? 'info' : 'error'}`}
-        >
-          {result.message}
-        </div>
-      )}
-      {result && result.needed == null && result.message && (
-        <div className="edp-alert error">{result.message}</div>
-      )}
+      ))}
     </div>
   )
 }
 
-function SubjectDetail({ subject, onBack }) {
-  const avg = subject.studentAverage ?? calcSubjectAverage(subject.grades)
-  const grades = (subject.grades || []).slice().sort((a, b) => {
-    if (!a.date) return 1
-    if (!b.date) return -1
-    return new Date(a.date).getTime() - new Date(b.date).getTime()
-  })
+function HomeworkDigestList({ items, overdueCount, onOpen }) {
+  if (!items.length && overdueCount === 0) {
+    return (
+      <EmptyState
+        icon="✓"
+        title="Aucun devoir urgent"
+        description="Le cahier de texte ne remonte rien d immédiat. Tu peux ouvrir le module complet pour tout revoir."
+        action={<button type="button" className="edp-btn-ghost" onClick={onOpen}>Voir tous les devoirs</button>}
+      />
+    )
+  }
 
   return (
-    <div className="windows-container" style={{ flexDirection: 'column', height: '100vh', minHeight: 0 }}>
-      <Header />
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, margin: '12px 0' }}>
-        <button className="edp-btn-ghost" onClick={onBack}>← Retour</button>
-        <SubjectAvatar name={subject.name} size={40} />
-        <div>
-          <h2 style={{ margin: 0, fontSize: 'var(--font-size-24)' }}>{subject.name}</h2>
-          <span style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))' }}>
-            Coeff {subject.coefficient ?? '?'} · {subject.grades?.length || 0} note{pluralize(subject.grades?.length || 0, '', 's')}
-          </span>
+    <div className="dashboard-homework-stack">
+      {overdueCount > 0 ? (
+        <div className="dashboard-homework-banner">
+          <span className="edp-pill danger">{overdueCount} en retard</span>
+          <span>Traite d abord les devoirs dépassés avant les échéances à venir.</span>
         </div>
-      </div>
-
-      <div className="windows-layout d-column animate-fade-in" style={{ flex: 1, minHeight: 0 }}>
-        <Window>
-          <WindowHeader><h2>📊 Moyenne</h2></WindowHeader>
-          <WindowContent>
-            <div style={{ display: 'flex', alignItems: 'baseline', gap: 16, flexWrap: 'wrap' }}>
-              <span style={{ fontSize: 'var(--font-size-48)', fontWeight: 'var(--font-weight-extra-bold)' }}>
-                {formatNumber(avg)}
-              </span>
-              <span style={{ fontSize: 'var(--font-size-20)', color: 'rgb(var(--text-color-alt))' }}>/20</span>
-              {subject.classAverage != null && (
-                <span style={{ fontSize: 'var(--font-size-14)', color: 'rgb(var(--text-color-alt))' }}>
-                  Classe : {formatNumber(subject.classAverage)}/20
-                </span>
-              )}
+      ) : null}
+      {items.map((item) => (
+        <button key={item.id} type="button" className="dashboard-homework-item" onClick={onOpen}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+            <SubjectAvatar name={item.subject} size={34} />
+            <div style={{ minWidth: 0 }}>
+              <div className="dashboard-homework-title">{item.subject || 'Sans matière'}</div>
+              <div className="dashboard-homework-meta">
+                {item.forDate ? formatDate(item.forDate, { weekday: 'long', day: 'numeric', month: 'long' }) : 'Sans date'}
+              </div>
             </div>
-            <p style={{ marginTop: 8, fontSize: 'var(--font-size-14)', color: 'rgb(var(--text-color-alt))' }}>
-              {getGradeLabel(avg)}
-            </p>
-          </WindowContent>
-        </Window>
+          </div>
+          <span className="dashboard-homework-arrow"><IconArrowRight size={14} /></span>
+        </button>
+      ))}
+      <button type="button" className="edp-btn-ghost" onClick={onOpen} style={{ alignSelf: 'flex-start' }}>
+        Ouvrir le cahier de texte
+      </button>
+    </div>
+  )
+}
 
-        {grades.length >= 2 && (
-          <Window>
-            <WindowHeader><h2><IconChart size={18} /> Évolution</h2></WindowHeader>
-            <WindowContent>
-              <TrendChart grades={grades} />
-            </WindowContent>
-          </Window>
-        )}
+function LatestGradesPanel({ grades, overallAvg, totalGrades, onOpen }) {
+  if (!grades.length) {
+    return (
+      <EmptyState
+        icon="📭"
+        title="Aucune note récente"
+        description="Les dernières évaluations apparaîtront ici dès qu une période renverra des notes."
+        action={<button type="button" className="edp-btn-ghost" onClick={onOpen}>Aller dans les notes</button>}
+      />
+    )
+  }
 
-        <Window>
-          <WindowHeader><h2>📋 Toutes les notes</h2></WindowHeader>
-          <WindowContent>
-            {grades.length === 0 ? (
-              <EmptyState icon="📭" title="Pas encore de note" />
-            ) : (
-              <table className="grades-table">
-                <thead>
-                  <tr>
-                    <th className="head-cell" style={{ textAlign: 'left' }}>Date</th>
-                    <th className="head-cell" style={{ textAlign: 'left' }}>Nom</th>
-                    <th className="head-cell" style={{ textAlign: 'center' }}>Note</th>
-                    <th className="head-cell" style={{ textAlign: 'center' }}>Classe</th>
-                    <th className="head-cell" style={{ textAlign: 'center' }}>Coeff</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {grades.slice().reverse().map((g, i) => (
-                    <tr key={i}>
-                      <td style={{ padding: '6px 0', fontSize: 'var(--font-size-14)', color: 'rgb(var(--text-color-alt))' }}>
-                        {formatDate(g.date)}
-                      </td>
-                      <td style={{ padding: '6px 0', fontSize: 'var(--font-size-14)' }}>
-                        {g.name || '—'}
-                      </td>
-                      <td style={{ padding: '6px 0', textAlign: 'center' }}>
-                        <GradeBadge value={g.value} outOf={g.outOf} />
-                      </td>
-                      <td style={{ padding: '6px 0', textAlign: 'center', fontSize: 'var(--font-size-14)' }}>
-                        {g.classAverage != null ? formatNumber(g.classAverage) : '—'}
-                      </td>
-                      <td style={{ padding: '6px 0', textAlign: 'center', fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))' }}>
-                        ×{g.coefficient || 1}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </WindowContent>
-        </Window>
+  return (
+    <div className="dashboard-grades-panel">
+      <div className="dashboard-grade-summary">
+        <div>
+          <span className="section-eyebrow">Synthèse</span>
+          <strong>{overallAvg != null ? `${formatNumber(overallAvg)}/20` : '—'}</strong>
+          <p>{totalGrades} note{pluralize(totalGrades, '', 's')} sur la période sélectionnée.</p>
+        </div>
+        <button type="button" className="edp-btn-ghost" onClick={onOpen}>
+          Ouvrir le module Notes
+        </button>
+      </div>
+      <div className="latest-grade-list">
+        {grades.map((grade, index) => (
+          <div key={`${grade.subjectName}-${grade.date || index}`} className="latest-grade-item">
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+              <SubjectAvatar name={grade.subjectName} size={34} />
+              <div style={{ minWidth: 0 }}>
+                <div className="latest-grade-title">{grade.subjectName}</div>
+                <div className="latest-grade-meta">
+                  {grade.name || 'Evaluation'}{grade.date ? ` · ${formatDate(grade.date, { weekday: 'short', day: 'numeric', month: 'short' })}` : ''}
+                </div>
+              </div>
+            </div>
+            <GradeBadge value={grade.value} outOf={grade.outOf} />
+          </div>
+        ))}
       </div>
     </div>
   )
 }
 
-function SubjectAvatar({ name, size = 36 }) {
-  const initial = (name || '?').charAt(0).toUpperCase()
+function VieScolaireDigest({ absences, delays, punishments, observations, onOpen }) {
+  const unjustified = totalUnjustifiedAbsences(absences)
+  const delayMinutes = totalDelayMinutes(delays)
+  const summary = [
+    {
+      label: 'Absences',
+      value: absences.length,
+      note: unjustified > 0 ? `${unjustified} non justifiée${pluralize(unjustified, '', 's')}` : 'Aucune critique',
+      danger: unjustified > 0,
+    },
+    {
+      label: 'Retards',
+      value: delays.length,
+      note: delays.length > 0 ? formatDurationMinutes(delayMinutes) : 'Ponctualité stable',
+      danger: false,
+    },
+    {
+      label: 'Sanctions',
+      value: punishments.length,
+      note: punishments.length > 0 ? 'A revoir rapidement' : 'Aucune',
+      danger: punishments.length > 0,
+    },
+    {
+      label: 'Observations',
+      value: observations.length,
+      note: observations.length > 0 ? 'Commentaires disponibles' : 'Rien de nouveau',
+      danger: false,
+    },
+  ]
+
   return (
-    <span
-      style={{
-        background: 'rgb(var(--border-color-0))',
-        color: 'rgb(var(--text-color-main))',
-        fontWeight: 'var(--font-weight-extra-bold)',
-        fontSize: `var(--font-size-${size <= 36 ? '18' : '20'})`,
-        width: size,
-        height: size,
-        borderRadius: 10,
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        flexShrink: 0,
-      }}
-    >
-      {initial}
-    </span>
+    <div className="dashboard-vs-grid">
+      {summary.map((item) => (
+        <div key={item.label} className={item.danger ? 'dashboard-vs-card is-danger' : 'dashboard-vs-card'}>
+          <span>{item.label}</span>
+          <strong>{item.value}</strong>
+          <p>{item.note}</p>
+        </div>
+      ))}
+      <button type="button" className="edp-btn-ghost" onClick={onOpen} style={{ alignSelf: 'flex-start' }}>
+        Ouvrir la vie scolaire
+      </button>
+    </div>
   )
 }
 
-function getArrowDirection(diff) {
-  if (diff > 0.5) return 'vertical-up'
-  if (diff > 0) return 'up'
-  if (diff > -0.5) return 'down'
-  return 'vertical-down'
+function QuickLinks({ unreadCount, onNavigate, messagePreview }) {
+  const links = [
+    {
+      label: 'Notes et moyennes',
+      description: 'Retrouver les statistiques, les matières et le simulateur.',
+      icon: <IconBook size={18} />,
+      action: () => onNavigate('/grades'),
+      meta: 'Module principal',
+    },
+    {
+      label: 'Emploi du temps',
+      description: 'Basculer vers la semaine complète et ses détails de cours.',
+      icon: <IconCalendar size={18} />,
+      action: () => onNavigate('/timetable'),
+      meta: 'Vue semaine',
+    },
+    {
+      label: 'Messagerie',
+      description: messagePreview || 'Ouvrir les dernières discussions Pronote.',
+      icon: <IconInbox size={18} />,
+        action: () => onNavigate('/messaging'),
+      meta: unreadCount > 0 ? `${unreadCount} non lu${pluralize(unreadCount, '', 's')}` : 'Boîte à jour',
+    },
+    {
+      label: 'Devoirs',
+      description: 'Prioriser les échéances et retrouver les pièces jointes.',
+      icon: <IconClipboard size={18} />,
+      action: () => onNavigate('/homeworks'),
+      meta: 'Organisation',
+    },
+  ]
+
+  return (
+    <div className="quick-links-grid">
+      {links.map((link) => (
+        <button key={link.label} type="button" className="quick-link-card" onClick={link.action}>
+          <div className="quick-link-head">
+            <span className="quick-link-icon">{link.icon}</span>
+            <span className="edp-pill">{link.meta}</span>
+          </div>
+          <strong>{link.label}</strong>
+          <p>{link.description}</p>
+        </button>
+      ))}
+    </div>
+  )
 }

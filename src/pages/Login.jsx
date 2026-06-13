@@ -3,7 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { login } from '../services/api'
 import { useApp } from '../context/AppContext'
 import { Logo } from '../components/Logo'
-import { IconEye, IconEyeOff } from '../components/Icons'
+import { IconEye, IconEyeOff, IconShield, IconCalendar, IconChart, IconMail } from '../components/Icons'
 import { UrlHelpButton, UrlHelpPopover } from '../components/UrlHelp'
 
 const KIND_LABELS = {
@@ -14,7 +14,7 @@ const KIND_LABELS = {
 
 export default function Login() {
   const navigate = useNavigate()
-  const { setToken, setUser } = useApp()
+  const { setToken, setUser, prefs, updatePrefs } = useApp()
   const [url, setUrl] = useState('')
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -23,16 +23,22 @@ export default function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [helpAnchor, setHelpAnchor] = useState(null)
-  const [rememberUrl, setRememberUrl] = useState(true)
+  const [rememberUrl, setRememberUrl] = useState(() => prefs.rememberUrl !== false)
   const urlInputRef = useRef(null)
 
   useEffect(() => {
     try {
-      const saved = localStorage.getItem('pronoteplus-last-url')
-      if (saved) setUrl(saved)
+      if (prefs.rememberUrl !== false) {
+        const saved = localStorage.getItem('pronoteplus-last-url')
+        if (saved) setUrl(saved)
+      }
       urlInputRef.current?.focus()
     } catch {}
-  }, [])
+  }, [prefs.rememberUrl])
+
+  useEffect(() => {
+    setRememberUrl(prefs.rememberUrl !== false)
+  }, [prefs.rememberUrl])
 
   async function handleSubmit(e) {
     e.preventDefault()
@@ -64,145 +70,168 @@ export default function Login() {
   }
 
   return (
-    <div className="auth-page" style={{ flexDirection: 'column', gap: 24, padding: '40px 20px' }}>
-      <Link to="/" style={{ textDecoration: 'none' }}>
-        <Logo size={32} withText={true} />
-      </Link>
-
-      <div className="edp-card animate-go-in">
-        <h1 style={{ fontSize: 'var(--font-size-24)', textAlign: 'center', margin: '0 0 8px', fontWeight: 'var(--font-weight-extra-bold)' }}>
-          Connexion Pronote
-        </h1>
-        <p style={{ fontSize: 'var(--font-size-13)', textAlign: 'center', color: 'rgb(var(--text-color-alt))', margin: '0 0 20px' }}>
-          Connecte-toi avec tes identifiants Pronote. On ne les stocke pas.
-        </p>
-
-        {/* KIND SELECTOR */}
-        <div style={{ display: 'flex', gap: 6, marginBottom: 20, padding: 4, backgroundColor: 'rgb(var(--background-color-1))', borderRadius: 12 }}>
-          {Object.entries(KIND_LABELS).map(([key, info]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setKind(key)}
-              style={{
-                flex: 1,
-                padding: '8px 4px',
-                borderRadius: 8,
-                border: 'none',
-                backgroundColor: kind === key ? 'rgb(var(--border-color-0))' : 'transparent',
-                color: 'rgb(var(--text-color-main))',
-                fontSize: 'var(--font-size-13)',
-                fontWeight: kind === key ? 'var(--font-weight-semi-bold)' : 'var(--font-weight-regular)',
-                cursor: 'pointer',
-                transition: 'background 0.15s',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 2,
-              }}
-            >
-              <span style={{ fontSize: '1.5rem' }}>{info.icon}</span>
-              <span>{info.label}</span>
-            </button>
-          ))}
-        </div>
-
-        {error && (
-          <div className="edp-alert error" style={{ marginBottom: 16 }}>
-            ⚠️ {error}
+    <div className="auth-page">
+      <div className="auth-layout">
+        <section className="auth-showcase animate-go-in">
+          <div className="auth-copy">
+            <Link to="/" style={{ textDecoration: 'none' }}>
+              <Logo size={34} withText={true} />
+            </Link>
+            <h1>Pronote, mieux présenté dès la connexion.</h1>
+            <p>
+              Retrouve tes notes, ton emploi du temps, tes devoirs et ta messagerie dans une interface plus lisible,
+              plus rapide à parcourir et pensée pour un usage quotidien sur mobile comme sur ordinateur.
+            </p>
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-          <Field
-            label="URL de l'établissement"
-            help={
-              <UrlHelpButton
-                onShow={(e) => setHelpAnchor(e.currentTarget.getBoundingClientRect())}
-              />
-            }
-          >
-            <input
-              ref={urlInputRef}
-              type="url"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://monlycee.index-education.net/pronote"
-              className="edp-input"
-              required
-              autoComplete="url"
+          <div className="auth-points">
+            <FeaturePoint
+              icon={<IconChart size={18} />}
+              title="Vue d’ensemble immédiate"
+              text="Moyennes, tendances et priorités s’affichent sans devoir fouiller les écrans."
             />
-          </Field>
-
-          <Field label="Identifiant">
-            <input
-              type="text"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Ton identifiant Pronote"
-              className="edp-input"
-              required
-              autoComplete="username"
+            <FeaturePoint
+              icon={<IconCalendar size={18} />}
+              title="Agenda plus clair"
+              text="Le calendrier et les devoirs gardent une densité utile sans perdre en lisibilité."
             />
-          </Field>
+            <FeaturePoint
+              icon={<IconMail size={18} />}
+              title="Messagerie recentrée"
+              text="Les discussions importantes ressortent mieux et les réponses restent rapides à envoyer."
+            />
+            <FeaturePoint
+              icon={<IconShield size={18} />}
+              title="Sécurité expliquée"
+              text="Les identifiants ne sont jamais stockés en clair et la session reste révocable."
+            />
+          </div>
+        </section>
 
-          <Field label="Mot de passe">
-            <div style={{ position: 'relative' }}>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Ton mot de passe"
-                className="edp-input"
-                required
-                autoComplete="current-password"
-                style={{ paddingRight: 44 }}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                style={{
-                  position: 'absolute',
-                  right: 8,
-                  top: '50%',
-                  transform: 'translateY(-50%)',
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  color: 'rgb(var(--text-color-alt))',
-                  padding: 4,
-                }}
-                aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
-                tabIndex={-1}
-              >
-                {showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}
-              </button>
+        <div className="auth-card-wrap">
+          <div className="edp-card animate-go-in">
+            <h1 style={{ fontSize: 'var(--font-size-24)', textAlign: 'center', margin: '0 0 8px', fontWeight: 'var(--font-weight-extra-bold)' }}>
+              Connexion Pronote
+            </h1>
+            <p style={{ fontSize: 'var(--font-size-13)', textAlign: 'center', color: 'rgb(var(--text-color-alt))', margin: '0 0 20px' }}>
+              Connecte-toi avec ton compte élève, parent ou professeur.
+            </p>
+
+            <div className="auth-kind-grid">
+              {Object.entries(KIND_LABELS).map(([key, info]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => setKind(key)}
+                  className={`auth-kind-btn ${kind === key ? 'is-active' : ''}`}
+                >
+                  <span className="auth-kind-emoji">{info.icon}</span>
+                  <span>{info.label}</span>
+                </button>
+              ))}
             </div>
-          </Field>
 
-          <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', cursor: 'pointer' }}>
-            <input
-              type="checkbox"
-              checked={rememberUrl}
-              onChange={(e) => setRememberUrl(e.target.checked)}
-            />
-            <span>Se souvenir de l'URL (jamais du mot de passe)</span>
-          </label>
+            {error && (
+              <div className="edp-alert error" style={{ marginBottom: 16 }}>
+                {error}
+              </div>
+            )}
 
-          <button type="submit" disabled={loading} className="edp-btn" style={{ marginTop: 8, fontSize: 'var(--font-size-18)', padding: '12px 24px' }}>
-            {loading ? 'Connexion…' : 'Se connecter'}
-          </button>
-        </form>
+            <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+              <Field
+                label="URL de l'établissement"
+                help={
+                  <UrlHelpButton
+                    onShow={(e) => setHelpAnchor(e.currentTarget.getBoundingClientRect())}
+                  />
+                }
+              >
+                <input
+                  ref={urlInputRef}
+                  type="url"
+                  value={url}
+                  onChange={(e) => setUrl(e.target.value)}
+                  placeholder="https://monlycee.index-education.net/pronote"
+                  className="edp-input"
+                  required
+                  autoComplete="url"
+                />
+              </Field>
 
-        <p style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))', textAlign: 'center', margin: '20px 0 0', lineHeight: 1.4 }}>
-          🔒 Tes identifiants sont chiffrés en AES-256-GCM et ne servent qu'à te connecter à Pronote.<br />
-          On ne les stocke jamais en clair, nulle part.
-        </p>
+              <Field label="Identifiant">
+                <input
+                  type="text"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  placeholder="Ton identifiant Pronote"
+                  className="edp-input"
+                  required
+                  autoComplete="username"
+                />
+              </Field>
+
+              <Field label="Mot de passe">
+                <div style={{ position: 'relative' }}>
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    placeholder="Ton mot de passe"
+                    className="edp-input"
+                    required
+                    autoComplete="current-password"
+                    style={{ paddingRight: 44 }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    style={{
+                      position: 'absolute',
+                      right: 8,
+                      top: '50%',
+                      transform: 'translateY(-50%)',
+                      background: 'none',
+                      border: 'none',
+                      cursor: 'pointer',
+                      color: 'rgb(var(--text-color-alt))',
+                      padding: 4,
+                    }}
+                    aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <IconEyeOff size={18} /> : <IconEye size={18} />}
+                  </button>
+                </div>
+              </Field>
+
+              <label className="auth-remember">
+                <input
+                  type="checkbox"
+                  checked={rememberUrl}
+                  onChange={(e) => {
+                    setRememberUrl(e.target.checked)
+                    updatePrefs({ rememberUrl: e.target.checked })
+                  }}
+                />
+                <span>Se souvenir de l'URL uniquement</span>
+              </label>
+
+              <button type="submit" disabled={loading} className="edp-btn" style={{ marginTop: 8, fontSize: 'var(--font-size-18)', padding: '12px 24px' }}>
+                {loading ? 'Connexion…' : 'Se connecter'}
+              </button>
+            </form>
+
+            <p style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))', textAlign: 'center', margin: '20px 0 0', lineHeight: 1.5 }}>
+              Le mot de passe est chiffré côté serveur en AES-256-GCM et utilisé uniquement pour synchroniser les données Pronote.
+              Le navigateur conserve seulement un token de session révocable.
+            </p>
+
+            <Link to="/" style={{ display: 'inline-block', marginTop: 20, fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', textDecoration: 'none' }}>
+              ← Retour à l'accueil
+            </Link>
+          </div>
+        </div>
       </div>
-
-      <Link to="/" style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', textDecoration: 'none' }}>
-        ← Retour à l'accueil
-      </Link>
 
       {helpAnchor && (
         <UrlHelpPopover
@@ -210,6 +239,16 @@ export default function Login() {
           onClose={() => setHelpAnchor(null)}
         />
       )}
+    </div>
+  )
+}
+
+function FeaturePoint({ icon, title, text }) {
+  return (
+    <div className="auth-point">
+      <div style={{ color: 'rgb(var(--border-color-0))', marginBottom: 10 }}>{icon}</div>
+      <strong>{title}</strong>
+      <span>{text}</span>
     </div>
   )
 }
