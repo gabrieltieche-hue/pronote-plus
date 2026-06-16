@@ -25,7 +25,7 @@ const DEFAULT_PREFS = {
 function loadInitial() {
   let token = null
   let user = null
-  let theme = 'dark'
+  let theme = 'light'
   let prefs = { ...DEFAULT_PREFS }
 
   try { token = localStorage.getItem(STORAGE_KEYS.token) || null } catch {}

@@ -811,6 +811,28 @@ app.get('/api/homeworks', authenticate, apiLimiter, async (req, res) => {
   }
 });
 
+app.put('/api/homeworks/:id/done', authenticate, apiLimiter, async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { done } = req.body;
+    const { url, username, password, kind } = req.user;
+    const session = await getOrCreateSession(req, { url, username, password, kind });
+
+    if (typeof pronote.setAssignmentDone === 'function') {
+      await pronote.setAssignmentDone(session, id, !!done);
+      return res.json({ ok: true });
+    }
+    return res.status(501).json({ error: 'Cette fonctionnalité n\'est pas encore disponible.' });
+  } catch (err) {
+    if (isSessionError(err)) {
+      invalidateUserSession(req);
+      return res.status(401).json({ error: 'Session expirée, veuillez vous reconnecter' });
+    }
+    console.error('Toggle homework error:', err);
+    res.status(500).json({ error: 'Erreur lors de la mise à jour du devoir' });
+  }
+});
+
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString(), version: '0.3.2' });
 });

@@ -59,6 +59,23 @@ export function calcOverallAverage(subjects) {
   return Math.round((totalWeighted / totalCoeff) * 100) / 100
 }
 
+export function calcClassAverageFallback(subjects) {
+  if (!subjects || subjects.length === 0) return null
+  let totalWeighted = 0
+  let totalCoeff = 0
+  for (const s of subjects) {
+    const subjectCoeff = Number.isFinite(Number(s.coefficient)) && Number(s.coefficient) > 0
+      ? Number(s.coefficient)
+      : 1
+    const avg = s.classAverage
+    if (avg == null) continue
+    totalWeighted += avg * subjectCoeff
+    totalCoeff += subjectCoeff
+  }
+  if (totalCoeff === 0) return null
+  return Math.round((totalWeighted / totalCoeff) * 100) / 100
+}
+
 export function getSubjectAverage(subject) {
   if (!subject) return null
   return subject.studentAverage ?? calcSubjectAverage(subject.grades)

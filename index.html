@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#181829" id="theme-color-meta" />
+  <meta name="theme-color" content="#E4E4FF" id="theme-color-meta" />
   <meta name="color-scheme" content="dark light" />
 
   <title>Pronote+ — Ta vie scolaire, augmentée.</title>
@@ -34,7 +34,7 @@
         var meta = document.getElementById('theme-color-meta');
         if (meta) meta.setAttribute('content', t === 'dark' ? '#181829' : '#E4E4FF');
       } catch (e) {
-        document.documentElement.classList.add('dark');
+        document.documentElement.classList.add('light');
       }
     })();
   </script>

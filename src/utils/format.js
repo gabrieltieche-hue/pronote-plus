@@ -85,3 +85,12 @@ export function safeFileName(name, maxLen = 60) {
   const base = name.slice(0, maxLen - ext.length - 3)
   return `${base}...${ext}`
 }
+
+export function getFirstName(fullName) {
+  if (!fullName) return ''
+  const parts = fullName.trim().split(/\s+/)
+  if (parts.length === 0) return ''
+  const raw = parts[parts.length - 1]
+  if (!raw) return ''
+  return raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase()
+}

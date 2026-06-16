@@ -11,9 +11,9 @@ import {
   IconSun,
   IconUser,
 } from './Icons'
-import { formatRelative } from '../utils/format'
+import { formatRelative, getFirstName } from '../utils/format'
 
-export function Header({ onRefresh, lastSync, loading, title, subtitle, badge, actions }) {
+export function Header({ onRefresh, lastSync, loading, title, subtitle, welcome, badge, actions, minimal }) {
   const navigate = useNavigate()
   const { user, theme, toggleTheme, logout } = useApp()
   const [confirmLogout, setConfirmLogout] = useState(false)
@@ -38,22 +38,28 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, badge, a
 
   return (
     <>
-      <header className="app-header">
+      <header className={minimal ? 'app-header is-minimal' : 'app-header'}>
         <div className="app-header-main">
           <div className="app-header-copy">
             {badge ? <div className="app-header-badge">{badge}</div> : null}
             {title ? <h1>{title}</h1> : null}
-            {subtitle ? <p>{subtitle}</p> : null}
+            {subtitle ? <p className="app-header-establishment"><strong>{subtitle}</strong></p> : null}
           </div>
+
+          {welcome ? (
+            <div className="app-header-welcome" aria-hidden={false}>
+              <span className="app-header-welcome-text">{welcome}</span>
+            </div>
+          ) : null}
 
           <div className="app-header-tools">
             {actions ? <div className="app-header-inline-actions">{actions}</div> : null}
-            {lastSync ? (
+            {!minimal && lastSync ? (
               <div className="app-header-sync" title={new Date(lastSync).toLocaleString('fr-FR')}>
                 Mis à jour {formatRelative(lastSync)}
               </div>
             ) : null}
-            {onRefresh ? (
+            {!minimal && onRefresh ? (
               <button
                 type="button"
                 className="edp-btn-icon"
@@ -86,10 +92,10 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, badge, a
                 aria-expanded={userMenuOpen}
               >
                 <span className="account-chip-avatar">
-                  {(user?.name || '?').trim().charAt(0).toUpperCase()}
+                  {(getFirstName(user?.name) || user?.name || '?').trim().charAt(0).toUpperCase()}
                 </span>
                 <span className="account-chip-copy">
-                  <strong>{user?.name || 'Compte'}</strong>
+                  <strong>{getFirstName(user?.name) || user?.name || 'Compte'}</strong>
                   <span>{user?.class || 'Session active'}</span>
                 </span>
                 <IconChevronDown size={14} />

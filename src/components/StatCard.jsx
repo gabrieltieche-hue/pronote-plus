@@ -1,3 +1,11 @@
+function valueFontSize(value) {
+  const str = String(value ?? '')
+  if (str.length <= 3) return 'var(--font-size-32)'
+  if (str.length <= 6) return 'var(--font-size-26)'
+  if (str.length <= 10) return 'var(--font-size-20)'
+  return 'var(--font-size-16)'
+}
+
 export function StatCard({ label, value, sublabel, color, icon, onClick, trend }) {
   const Container = onClick ? 'button' : 'div'
   return (
@@ -25,7 +33,7 @@ export function StatCard({ label, value, sublabel, color, icon, onClick, trend }
         {icon && <span style={{ color: color || 'rgb(var(--border-color-0))' }}>{icon}</span>}
       </div>
       <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-        <span style={{ fontSize: 'var(--font-size-32)', fontWeight: 'var(--font-weight-extra-bold)', color: color || 'rgb(var(--text-color-main))', lineHeight: 1.1 }}>
+        <span style={{ fontSize: valueFontSize(value), fontWeight: 'var(--font-weight-extra-bold)', color: color || 'rgb(var(--text-color-main))', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
           {value}
         </span>
         {sublabel && (

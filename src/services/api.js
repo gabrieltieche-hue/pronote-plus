@@ -91,3 +91,8 @@ export const sendDiscussionMessage = (id, content) => request(`/api/discussions/
 })
 export const markDiscussionRead = (id) => request(`/api/discussions/${encodeURIComponent(id)}/read`, { method: 'POST' })
 export const pingHealth = () => request('/api/health')
+
+export const toggleHomeworkDone = (id, done) => request(`/api/homeworks/${encodeURIComponent(id)}/done`, {
+  method: 'PUT',
+  body: JSON.stringify({ done }),
+})

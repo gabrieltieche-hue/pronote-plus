@@ -23,6 +23,7 @@ import {
   isToday,
   lessonColorFromSubject,
   shiftWeek,
+  computeLessonColumns,
 } from '../utils/timetable'
 import {
   IconAlert,
@@ -223,6 +224,7 @@ function DesktopWeekView({ days, lessonsByDay, onLessonClick }) {
 function DayTimeline({ day, lessons, gridHeight, onLessonClick }) {
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
   const isCurrentDay = isToday(day)
+  const laidOut = useMemo(() => computeLessonColumns(lessons), [lessons])
 
   return (
     <div className="tt-day-timeline" style={{ height: gridHeight }}>
@@ -236,18 +238,25 @@ function DayTimeline({ day, lessons, gridHeight, onLessonClick }) {
         </div>
       ) : null}
 
-      {lessons.map((lesson, index) => {
+      {laidOut.map((lesson, index) => {
         const start = new Date(lesson.start)
         const end = new Date(lesson.end)
         const startMinutes = start.getHours() * 60 + start.getMinutes()
         const endMinutes = end.getHours() * 60 + end.getMinutes()
         const top = ((startMinutes - HOUR_START * 60) / 60) * HOUR_HEIGHT
         const height = Math.max(54, ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT)
+        const gap = 6
+        const colW = lesson._totalCols > 1
+          ? `calc(${100 / lesson._totalCols}% - ${(gap * (lesson._totalCols - 1)) / lesson._totalCols}px)`
+          : 'calc(100% - 16px)'
+        const leftPct = lesson._totalCols > 1
+          ? `calc(${(100 / lesson._totalCols) * lesson._col}% + ${lesson._col * (gap / lesson._totalCols)}px)`
+          : '0'
         return (
           <LessonCard
             key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`}
             lesson={lesson}
-            style={{ top, height }}
+            style={{ top, height, left: lesson._totalCols > 1 ? leftPct : '8px', width: colW }}
             onClick={() => onLessonClick(lesson)}
           />
         )
@@ -307,7 +316,7 @@ function LessonCard({ lesson, style, onClick }) {
       onClick={onClick}
       style={{
         ...style,
-        background: color?.background,
+        background: color?.bg,
         borderColor: color?.border,
       }}
       aria-label={`${lesson.subject || 'Cours'} de ${formatTime(lesson.start)} à ${formatTime(lesson.end)}`}

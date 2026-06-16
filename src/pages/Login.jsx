@@ -220,8 +220,7 @@ export default function Login() {
             </form>
 
             <p style={{ fontSize: 'var(--font-size-12)', color: 'rgb(var(--text-color-alt))', textAlign: 'center', margin: '20px 0 0', lineHeight: 1.5 }}>
-              Le mot de passe est chiffré côté serveur en AES-256-GCM et utilisé uniquement pour synchroniser les données Pronote.
-              Le navigateur conserve seulement un token de session révocable.
+              Ton mot de passe est chiffré et sécurisé. On ne le stocke jamais en clair.
             </p>
 
             <Link to="/" style={{ display: 'inline-block', marginTop: 20, fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', textDecoration: 'none' }}>

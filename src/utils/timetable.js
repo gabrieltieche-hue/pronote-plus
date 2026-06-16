@@ -76,19 +76,29 @@ export function groupLessonsByDay(lessons, weekStart, daysCount = 7) {
   return { days, map }
 }
 
+const LESSON_PALETTE = [
+  { bg: 'rgba(100, 149, 237, 0.16)', border: 'rgba(100, 149, 237, 0.55)' },
+  { bg: 'rgba(120, 175, 120, 0.16)', border: 'rgba(120, 175, 120, 0.55)' },
+  { bg: 'rgba(195, 115, 135, 0.16)', border: 'rgba(195, 115, 135, 0.55)' },
+  { bg: 'rgba(195, 165, 95, 0.16)', border: 'rgba(195, 165, 95, 0.55)' },
+  { bg: 'rgba(145, 115, 175, 0.16)', border: 'rgba(145, 115, 175, 0.55)' },
+  { bg: 'rgba(95, 165, 165, 0.16)', border: 'rgba(95, 165, 165, 0.55)' },
+  { bg: 'rgba(195, 135, 105, 0.16)', border: 'rgba(195, 135, 105, 0.55)' },
+  { bg: 'rgba(115, 115, 175, 0.16)', border: 'rgba(115, 115, 175, 0.55)' },
+  { bg: 'rgba(145, 175, 95, 0.16)', border: 'rgba(145, 175, 95, 0.55)' },
+  { bg: 'rgba(185, 125, 155, 0.16)', border: 'rgba(185, 125, 155, 0.55)' },
+  { bg: 'rgba(95, 155, 175, 0.16)', border: 'rgba(95, 155, 175, 0.55)' },
+  { bg: 'rgba(180, 150, 75, 0.16)', border: 'rgba(180, 150, 75, 0.55)' },
+]
+
 export function lessonColorFromSubject(subject) {
-  if (!subject) return null
+  if (!subject) return LESSON_PALETTE[0]
   let hash = 0
   for (let i = 0; i < subject.length; i++) {
     hash = (hash << 5) - hash + subject.charCodeAt(i)
     hash |= 0
   }
-  const hue = Math.abs(hash) % 360
-  return {
-    background: `linear-gradient(180deg, hsla(${hue}, 86%, 64%, 0.22), hsla(${hue}, 86%, 56%, 0.12))`,
-    surface: `hsla(${hue}, 88%, 62%, 0.18)`,
-    border: `hsla(${hue}, 82%, 62%, 0.9)`,
-  }
+  return LESSON_PALETTE[Math.abs(hash) % LESSON_PALETTE.length]
 }
 
 export function formatWeekRange(start, end) {
@@ -98,4 +108,33 @@ export function formatWeekRange(start, end) {
     return `Semaine du ${start.getDate()} au ${end.getDate()} ${em} ${start.getFullYear()}`
   }
   return `Semaine du ${start.getDate()} ${sm} au ${end.getDate()} ${em} ${end.getFullYear()}`
+}
+
+export function computeLessonColumns(lessons) {
+  if (!lessons.length) return []
+  const sorted = lessons
+    .map((l) => ({ ...l, _start: new Date(l.start).getTime(), _end: new Date(l.end).getTime() }))
+    .sort((a, b) => a._start - b._start || a._end - b._end)
+
+  const columns = []
+  const placed = []
+
+  for (const lesson of sorted) {
+    let col = 0
+    while (col < columns.length) {
+      const lastInCol = columns[col]
+      if (lesson._start >= lastInCol._end) break
+      col++
+    }
+    if (col >= columns.length) columns.push([])
+    columns[col].push(lesson)
+    placed.push({ lesson, col })
+  }
+
+  const totalCols = columns.length
+  return placed.map(({ lesson, col }) => ({
+    ...lesson,
+    _col: col,
+    _totalCols: totalCols,
+  }))
 }

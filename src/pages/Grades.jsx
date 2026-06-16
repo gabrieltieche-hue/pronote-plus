@@ -13,7 +13,7 @@ import { SubjectAvatar } from '../components/SubjectAvatar'
 import { StatCard } from '../components/StatCard'
 import { PageShell, PageHeader, SectionIntro } from '../components/PageShell'
 import { useApiAuth, useApiResource } from '../utils/hooks'
-import { calcSubjectAverage, calcOverallAverage, calcTotalGradeCount, calcNeededGrade, getGradeLabel } from '../utils/grades'
+import { calcSubjectAverage, calcOverallAverage, calcClassAverageFallback, calcTotalGradeCount, calcNeededGrade, getGradeLabel } from '../utils/grades'
 import { formatDate, formatNumber, pluralize } from '../utils/format'
 import { IconTarget, IconChart, IconTrophy, IconArrowUp, IconArrowDown, IconCheck, IconBook, IconSparkles } from '../components/Icons'
 
@@ -77,7 +77,7 @@ export default function Grades() {
 
   const subjects = gradesData?.subjects || []
   const overallAvg = gradesData?.overallAverage ?? calcOverallAverage(subjects)
-  const classAvg = gradesData?.classAverage ?? null
+  const classAvg = gradesData?.classAverage ?? calcClassAverageFallback(subjects)
   const periodName = gradesData?.period?.name || ''
   const totalGrades = calcTotalGradeCount(subjects)
   const loading = gradesLoading && !gradesData

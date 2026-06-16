@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback, useState as useStateHook } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Header } from '../components/Header'
 import { Window, WindowHeader, WindowContent } from '../components/Window'
@@ -8,13 +8,13 @@ import { ErrorDisplay } from '../components/ErrorDisplay'
 import { Tabs } from '../components/Tabs'
 import { PageShell, PageHeader, SectionIntro } from '../components/PageShell'
 import { StatCard } from '../components/StatCard'
-import { fetchHomeworks } from '../services/api'
+import { fetchHomeworks, toggleHomeworkDone } from '../services/api'
 import { useApp } from '../context/AppContext'
 import { useApiAuth, useApiResource } from '../utils/hooks'
 import { formatDate, formatRelative } from '../utils/format'
 import { SubjectAvatar } from '../components/SubjectAvatar'
 import { FileList } from '../components/FileList'
-import { IconCalendar, IconSearch, IconClipboard } from '../components/Icons'
+import { IconCalendar, IconSearch, IconClipboard, IconCheck } from '../components/Icons'
 
 const FILTERS = [
   { value: 'upcoming', label: 'À faire' },
@@ -327,12 +327,31 @@ export default function Homeworks() {
 }
 
 function HomeworkCard({ homework }) {
-  const isDone = !!homework.done
+  const [localDone, setLocalDone] = useState(null)
+  const isDone = localDone !== null ? localDone : !!homework.done
   const isTest = !!homework.isTest || !!homework.test
+
+  const handleToggle = useCallback(async (e) => {
+    e.stopPropagation()
+    const newDone = !isDone
+    setLocalDone(newDone)
+    try {
+      await toggleHomeworkDone(homework.id, newDone)
+    } catch {
+      setLocalDone(null)
+    }
+  }, [homework.id, isDone])
+
   return (
     <div className={`hw-card ${isDone ? 'is-done' : ''} ${isTest ? 'is-test' : ''}`}>
       <div className="hw-head">
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0, flex: 1 }}>
+          <div
+            className={`hw-checkbox ${isDone ? 'is-checked' : ''}`}
+            onClick={handleToggle}
+          >
+            {isDone && <IconCheck size={12} />}
+          </div>
           <SubjectAvatar name={homework.subject} size={32} />
           <div style={{ minWidth: 0, flex: 1 }}>
             <div className="hw-subject" style={{ display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
