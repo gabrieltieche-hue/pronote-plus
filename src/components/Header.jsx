@@ -36,103 +36,55 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, welcome,
     navigate('/', { replace: true })
   }
 
+  const tools = (
+    <HeaderTools
+      minimal={minimal}
+      actions={actions}
+      lastSync={lastSync}
+      onRefresh={onRefresh}
+      loading={loading}
+      theme={theme}
+      toggleTheme={toggleTheme}
+      user={user}
+      userMenuRef={userMenuRef}
+      userMenuOpen={userMenuOpen}
+      setUserMenuOpen={setUserMenuOpen}
+      navigate={navigate}
+      setConfirmLogout={setConfirmLogout}
+    />
+  )
+
   return (
     <>
       <header className={minimal ? 'app-header is-minimal' : 'app-header'}>
-        <div className="app-header-main">
-          <div className="app-header-copy">
-            {badge ? <div className="app-header-badge">{badge}</div> : null}
-            {title ? <h1>{title}</h1> : null}
-            {subtitle ? <p className="app-header-establishment"><strong>{subtitle}</strong></p> : null}
-          </div>
-
-          {welcome ? (
-            <div className="app-header-welcome" aria-hidden={false}>
-              <span className="app-header-welcome-text">{welcome}</span>
+        {minimal ? (
+          <div className="app-header-row">
+            <div className="app-header-copy">
+              {badge ? <div className="app-header-badge">{badge}</div> : null}
+              {subtitle ? <p className="app-header-establishment"><strong>{subtitle}</strong></p> : null}
             </div>
-          ) : null}
-
-          <div className="app-header-tools">
-            {actions ? <div className="app-header-inline-actions">{actions}</div> : null}
-            {!minimal && lastSync ? (
-              <div className="app-header-sync" title={new Date(lastSync).toLocaleString('fr-FR')}>
-                Mis à jour {formatRelative(lastSync)}
+            <div className="app-header-right">
+              {welcome ? (
+                <span className="app-header-welcome-text">{welcome}</span>
+              ) : null}
+              {tools}
+            </div>
+          </div>
+        ) : (
+          <div className="app-header-main">
+            <div className="app-header-copy">
+              {badge ? <div className="app-header-badge">{badge}</div> : null}
+              {title ? <h1>{title}</h1> : null}
+              {subtitle ? <p className="app-header-establishment"><strong>{subtitle}</strong></p> : null}
+            </div>
+            {welcome ? (
+              <div className="app-header-welcome">
+                <span className="app-header-welcome-text">{welcome}</span>
               </div>
             ) : null}
-            {!minimal && onRefresh ? (
-              <button
-                type="button"
-                className="edp-btn-icon"
-                onClick={onRefresh}
-                disabled={loading}
-                title="Rafraîchir les données"
-                aria-label="Rafraîchir"
-              >
-                <span style={{ display: 'inline-block', animation: loading ? 'spin 0.8s linear infinite' : 'none' }}>
-                  <IconRefresh size={18} />
-                </span>
-              </button>
-            ) : null}
-            <button
-              type="button"
-              className="edp-btn-icon"
-              onClick={toggleTheme}
-              title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
-              aria-label="Changer le thème"
-            >
-              {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
-            </button>
-
-            <div ref={userMenuRef} style={{ position: 'relative' }}>
-              <button
-                type="button"
-                className="account-chip"
-                onClick={() => setUserMenuOpen((value) => !value)}
-                aria-haspopup="menu"
-                aria-expanded={userMenuOpen}
-              >
-                <span className="account-chip-avatar">
-                  {(getFirstName(user?.name) || user?.name || '?').trim().charAt(0).toUpperCase()}
-                </span>
-                <span className="account-chip-copy">
-                  <strong>{getFirstName(user?.name) || user?.name || 'Compte'}</strong>
-                  <span>{user?.class || 'Session active'}</span>
-                </span>
-                <IconChevronDown size={14} />
-              </button>
-
-              {userMenuOpen ? (
-                <div className="account-menu" role="menu">
-                  <MenuItem
-                    icon={IconUser}
-                    label="Mon profil"
-                    onClick={() => {
-                      setUserMenuOpen(false)
-                      navigate('/settings')
-                    }}
-                  />
-                  <MenuItem
-                    icon={IconSettings}
-                    label="Paramètres"
-                    onClick={() => {
-                      setUserMenuOpen(false)
-                      navigate('/settings')
-                    }}
-                  />
-                  <MenuItem
-                    icon={IconLogout}
-                    label="Se déconnecter"
-                    danger
-                    onClick={() => {
-                      setUserMenuOpen(false)
-                      setConfirmLogout(true)
-                    }}
-                  />
-                </div>
-              ) : null}
-            </div>
+            {tools}
           </div>
-        </div>
+        )}
       </header>
 
       <ConfirmModal
@@ -145,6 +97,105 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, welcome,
         onClose={() => setConfirmLogout(false)}
       />
     </>
+  )
+}
+
+function HeaderTools({
+  minimal,
+  actions,
+  lastSync,
+  onRefresh,
+  loading,
+  theme,
+  toggleTheme,
+  user,
+  userMenuRef,
+  userMenuOpen,
+  setUserMenuOpen,
+  navigate,
+  setConfirmLogout,
+}) {
+  return (
+    <div className="app-header-tools">
+      {actions ? <div className="app-header-inline-actions">{actions}</div> : null}
+      {!minimal && lastSync ? (
+        <div className="app-header-sync" title={new Date(lastSync).toLocaleString('fr-FR')}>
+          Mis à jour {formatRelative(lastSync)}
+        </div>
+      ) : null}
+      {!minimal && onRefresh ? (
+        <button
+          type="button"
+          className="edp-btn-icon"
+          onClick={onRefresh}
+          disabled={loading}
+          title="Rafraîchir les données"
+          aria-label="Rafraîchir"
+        >
+          <span style={{ display: 'inline-block', animation: loading ? 'spin 0.8s linear infinite' : 'none' }}>
+            <IconRefresh size={18} />
+          </span>
+        </button>
+      ) : null}
+      <button
+        type="button"
+        className="edp-btn-icon"
+        onClick={toggleTheme}
+        title={theme === 'dark' ? 'Passer en mode clair' : 'Passer en mode sombre'}
+        aria-label="Changer le thème"
+      >
+        {theme === 'dark' ? <IconSun size={18} /> : <IconMoon size={18} />}
+      </button>
+
+      <div ref={userMenuRef} style={{ position: 'relative' }}>
+        <button
+          type="button"
+          className="account-chip"
+          onClick={() => setUserMenuOpen((value) => !value)}
+          aria-haspopup="menu"
+          aria-expanded={userMenuOpen}
+        >
+          <span className="account-chip-avatar">
+            {(getFirstName(user?.name) || user?.name || '?').trim().charAt(0).toUpperCase()}
+          </span>
+          <span className="account-chip-copy">
+            <strong>{getFirstName(user?.name) || user?.name || 'Compte'}</strong>
+            <span>{user?.class || 'Session active'}</span>
+          </span>
+          <IconChevronDown size={14} />
+        </button>
+
+        {userMenuOpen ? (
+          <div className="account-menu" role="menu">
+            <MenuItem
+              icon={IconUser}
+              label="Mon profil"
+              onClick={() => {
+                setUserMenuOpen(false)
+                navigate('/settings')
+              }}
+            />
+            <MenuItem
+              icon={IconSettings}
+              label="Paramètres"
+              onClick={() => {
+                setUserMenuOpen(false)
+                navigate('/settings')
+              }}
+            />
+            <MenuItem
+              icon={IconLogout}
+              label="Se déconnecter"
+              danger
+              onClick={() => {
+                setUserMenuOpen(false)
+                setConfirmLogout(true)
+              }}
+            />
+          </div>
+        ) : null}
+      </div>
+    </div>
   )
 }
 
