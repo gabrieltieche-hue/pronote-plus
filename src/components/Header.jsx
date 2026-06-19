@@ -19,6 +19,9 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, welcome,
   const [confirmLogout, setConfirmLogout] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const userMenuRef = useRef(null)
+  const compact = minimal || !title
+  const establishment = subtitle || user?.establishment || user?.school || 'COLLEGE DU MONT SAINT JEAN'
+  const greeting = welcome || (user?.name ? `Salut ${getFirstName(user.name)} 👋` : 'Salut Gabriel 👋')
 
   useEffect(() => {
     if (!userMenuOpen) return
@@ -38,7 +41,7 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, welcome,
 
   const tools = (
     <HeaderTools
-      minimal={minimal}
+      compact={compact}
       actions={actions}
       lastSync={lastSync}
       onRefresh={onRefresh}
@@ -56,19 +59,17 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, welcome,
 
   return (
     <>
-      <header className={minimal ? 'app-header is-minimal' : 'app-header'}>
-        {minimal ? (
+      <header className={compact ? 'app-header is-minimal' : 'app-header'}>
+        {compact ? (
           <div className="app-header-row">
             <div className="app-header-copy">
               {badge ? <div className="app-header-badge">{badge}</div> : null}
-              {subtitle ? <p className="app-header-establishment"><strong>{subtitle}</strong></p> : null}
+              <p className="app-header-establishment"><strong>{establishment}</strong></p>
             </div>
-            <div className="app-header-right">
-              {welcome ? (
-                <span className="app-header-welcome-text">{welcome}</span>
-              ) : null}
-              {tools}
+            <div className="app-header-center" aria-hidden="true">
+              <span className="app-header-welcome-text">{greeting}</span>
             </div>
+            {tools}
           </div>
         ) : (
           <div className="app-header-main">
@@ -101,7 +102,7 @@ export function Header({ onRefresh, lastSync, loading, title, subtitle, welcome,
 }
 
 function HeaderTools({
-  minimal,
+  compact,
   actions,
   lastSync,
   onRefresh,
@@ -118,12 +119,12 @@ function HeaderTools({
   return (
     <div className="app-header-tools">
       {actions ? <div className="app-header-inline-actions">{actions}</div> : null}
-      {!minimal && lastSync ? (
+      {!compact && lastSync ? (
         <div className="app-header-sync" title={new Date(lastSync).toLocaleString('fr-FR')}>
           Mis à jour {formatRelative(lastSync)}
         </div>
       ) : null}
-      {!minimal && onRefresh ? (
+      {!compact && onRefresh ? (
         <button
           type="button"
           className="edp-btn-icon"

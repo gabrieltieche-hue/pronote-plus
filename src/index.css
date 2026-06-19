@@ -424,17 +424,21 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
 }
 
 .app-header-row {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: clamp(8px, 2vw, 16px);
   width: 100%;
   min-width: 0;
+  min-height: 34px;
 }
 
 .app-header.is-minimal .app-header-copy {
-  flex: 1 1 0;
+  flex: 0 1 34%;
   min-width: 0;
+  max-width: min(34%, 360px);
+  padding-right: 10px;
 }
 
 .app-header.is-minimal .app-header-establishment {
@@ -444,21 +448,28 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
   white-space: nowrap;
 }
 
-.app-header-right {
+.app-header-center {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-shrink: 0;
-}
-
-.app-header.is-minimal .app-header-welcome-text {
-  white-space: nowrap;
+  justify-content: center;
+  pointer-events: none;
+  z-index: 1;
 }
 
 .app-header.is-minimal .app-header-tools {
   width: auto;
-  margin-left: 0;
+  margin-left: auto;
   flex-wrap: nowrap;
+  position: relative;
+  z-index: 2;
+}
+
+.app-header.is-minimal .app-header-welcome-text {
+  white-space: nowrap;
 }
 
 .app-header-main {
@@ -783,12 +794,22 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
     padding: 8px 12px;
   }
 
+  .app-header-row {
+    gap: 6px;
+  }
+
+  .app-header.is-minimal .app-header-copy {
+    flex-basis: 30%;
+    max-width: 30%;
+    padding-right: 4px;
+  }
+
   .app-header.is-minimal .app-header-establishment {
     font-size: var(--font-size-11);
   }
 
   .app-header.is-minimal .app-header-welcome-text {
-    font-size: var(--font-size-12);
+    font-size: clamp(1.05rem, 3.2vw, var(--font-size-12));
   }
 
   .app-header.is-minimal .app-header-tools {
