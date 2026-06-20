@@ -84,7 +84,7 @@ export default function VieScolaire() {
         meta={<span className="section-eyebrow">Suivi</span>}
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12, marginBottom: 16 }}>
+      <div className="stat-cards-grid" style={{ marginBottom: 16 }}>
         <StatCard
           label="Absences"
           value={absences.length}

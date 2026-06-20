@@ -86,6 +86,26 @@ export function safeFileName(name, maxLen = 60) {
   return `${base}...${ext}`
 }
 
+export function decodeHtmlEntities(text) {
+  if (!text || typeof text !== 'string') return ''
+  return text
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => {
+      const code = parseInt(hex, 16)
+      return code >= 0 && code <= 0x10FFFF ? String.fromCodePoint(code) : _
+    })
+    .replace(/&#(\d+);/g, (_, num) => {
+      const code = parseInt(num, 10)
+      return code >= 0 && code <= 0x10FFFF ? String.fromCodePoint(code) : _
+    })
+    .replace(/&nbsp;/gi, ' ')
+    .replace(/&apos;/gi, "'")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&amp;/g, '&')
+}
+
 export function getFirstName(fullName) {
   if (!fullName) return ''
   const parts = fullName.trim().split(/\s+/)

@@ -11,7 +11,7 @@ import { StatCard } from '../components/StatCard'
 import { fetchHomeworks, toggleHomeworkDone } from '../services/api'
 import { useApp } from '../context/AppContext'
 import { useApiAuth, useApiResource } from '../utils/hooks'
-import { formatDate, formatRelative } from '../utils/format'
+import { formatDate, formatRelative, decodeHtmlEntities } from '../utils/format'
 import { SubjectAvatar } from '../components/SubjectAvatar'
 import { FileList } from '../components/FileList'
 import { IconCalendar, IconSearch, IconClipboard, IconCheck } from '../components/Icons'
@@ -157,7 +157,7 @@ export default function Homeworks() {
         description="Priorise les devoirs urgents, filtre par matière et bascule de la vue liste à la vue jour sans perdre le contexte."
         meta={<span className="section-eyebrow">Organisation</span>}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div className="stat-cards-grid">
           <StatCard label="À faire" value={counts.upcoming} sublabel="À venir" icon={<IconClipboard size={18} />} />
           <StatCard label="En retard" value={counts.past} sublabel="À reprendre" icon={<IconCalendar size={18} />} color="rgb(var(--color-very-bad))" />
           <StatCard label="Terminés" value={counts.done} sublabel="Déjà traités" icon={<IconClipboard size={18} />} color="rgb(var(--color-good))" />
@@ -166,7 +166,7 @@ export default function Homeworks() {
       </PageHeader>
 
       <div className="toolbar-row">
-        <div className="search-field" style={{ flex: '1 1 220px', minWidth: 200, maxWidth: 360 }}>
+        <div className="search-field search-field-flex">
           <IconSearch size={14} />
           <input
             type="search"
@@ -374,7 +374,7 @@ function HomeworkCard({ homework }) {
         )}
       </div>
       {homework.description && (
-        <p className="hw-desc">{homework.description}</p>
+        <p className="hw-desc">{decodeHtmlEntities(homework.description)}</p>
       )}
       <FileList files={homework.files} compact />
     </div>

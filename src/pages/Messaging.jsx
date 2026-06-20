@@ -88,7 +88,7 @@ export default function Messaging() {
         description="Accède aux conversations importantes, repère les messages non lus et réponds sans quitter le contexte."
         meta={<span className="section-eyebrow">Communication</span>}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div className="stat-cards-grid">
           <StatCard label="Discussions" value={discussions.length} sublabel="Synchronisées" icon={<IconInbox size={18} />} />
           <StatCard label="Non lues" value={unreadCount} sublabel="À consulter" icon={<IconMail size={18} />} color={unreadCount > 0 ? 'rgb(var(--color-average))' : 'rgb(var(--color-good))'} />
           <StatCard label="Sélection" value={selectedDiscussion ? 1 : 0} sublabel={selectedDiscussion ? getDiscussionTitle(selectedDiscussion) : 'Aucune'} icon={<IconArrowLeft size={18} />} color="rgb(var(--border-color-0))" />
@@ -109,12 +109,6 @@ export default function Messaging() {
         <div
           className="windows-layout messaging-grid animate-fade-in"
           data-selected={!!selectedId}
-          style={{
-            flex: 1, minHeight: 0,
-            display: 'grid',
-            gridTemplateColumns: 'minmax(280px, 360px) 1fr',
-            gap: 'clamp(12px, 2vw, 20px)',
-          }}
         >
           <Window style={{ minHeight: 0 }}>
             <WindowHeader>

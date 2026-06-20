@@ -24,6 +24,10 @@ import {
   lessonColorFromSubject,
   shiftWeek,
   computeLessonColumns,
+  computeHourRange,
+  DEFAULT_HOUR_START,
+  DEFAULT_HOUR_END,
+  HOUR_HEIGHT_PX,
 } from '../utils/timetable'
 import {
   IconAlert,
@@ -36,9 +40,6 @@ import {
   IconUsers,
 } from '../components/Icons'
 
-const HOUR_START = 7
-const HOUR_END = 20
-const HOUR_HEIGHT = 68
 const DAY_COLUMN_MIN = 172
 const MOBILE_BREAKPOINT = 920
 
@@ -102,6 +103,10 @@ export default function Timetable() {
     return sum + Math.max(0, (end - start) / 3600000)
   }, 0)
   const cancelledCount = lessons.filter((lesson) => lesson.isCancelled).length
+  const { hourStart, hourEnd } = useMemo(
+    () => computeHourRange(lessons, DEFAULT_HOUR_START, DEFAULT_HOUR_END),
+    [lessons]
+  )
 
   return (
     <PageShell>
@@ -171,7 +176,13 @@ export default function Timetable() {
               ) : isCompact ? (
                 <CompactWeekView days={days} lessonsByDay={map} onLessonClick={setSelectedLesson} />
               ) : (
-                <DesktopWeekView days={days} lessonsByDay={map} onLessonClick={setSelectedLesson} />
+                <DesktopWeekView
+                  days={days}
+                  lessonsByDay={map}
+                  onLessonClick={setSelectedLesson}
+                  hourStart={hourStart}
+                  hourEnd={hourEnd}
+                />
               )}
             </WindowContent>
           </Window>
@@ -183,18 +194,18 @@ export default function Timetable() {
   )
 }
 
-function DesktopWeekView({ days, lessonsByDay, onLessonClick }) {
+function DesktopWeekView({ days, lessonsByDay, onLessonClick, hourStart, hourEnd }) {
   const dayLabels = getDayLabels()
   const dayLabelsMini = getDayLabelsMini()
-  const gridHeight = (HOUR_END - HOUR_START) * HOUR_HEIGHT
-  const hours = Array.from({ length: HOUR_END - HOUR_START + 1 }, (_, index) => HOUR_START + index)
+  const gridHeight = (hourEnd - hourStart) * HOUR_HEIGHT_PX
+  const hours = Array.from({ length: hourEnd - hourStart + 1 }, (_, index) => hourStart + index)
 
   return (
     <div className="tt-desktop-shell">
       <div className="tt-hours-column" style={{ height: gridHeight + 58 }}>
         <div className="tt-hours-spacer" />
         {hours.map((hour) => (
-          <div key={hour} className="tt-hour-slot" style={{ top: (hour - HOUR_START) * HOUR_HEIGHT }}>
+          <div key={hour} className="tt-hour-slot" style={{ top: (hour - hourStart) * HOUR_HEIGHT_PX }}>
             {String(hour).padStart(2, '0')}:00
           </div>
         ))}
@@ -212,6 +223,8 @@ function DesktopWeekView({ days, lessonsByDay, onLessonClick }) {
               day={day}
               lessons={lessonsByDay.get(day.toDateString()) || []}
               gridHeight={gridHeight}
+              hourStart={hourStart}
+              hourEnd={hourEnd}
               onLessonClick={onLessonClick}
             />
           </div>
@@ -221,19 +234,19 @@ function DesktopWeekView({ days, lessonsByDay, onLessonClick }) {
   )
 }
 
-function DayTimeline({ day, lessons, gridHeight, onLessonClick }) {
+function DayTimeline({ day, lessons, gridHeight, hourStart, hourEnd, onLessonClick }) {
   const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
   const isCurrentDay = isToday(day)
   const laidOut = useMemo(() => computeLessonColumns(lessons), [lessons])
 
   return (
     <div className="tt-day-timeline" style={{ height: gridHeight }}>
-      {Array.from({ length: HOUR_END - HOUR_START }, (_, index) => (
-        <div key={index} className="tt-grid-line" style={{ top: index * HOUR_HEIGHT }} />
+      {Array.from({ length: hourEnd - hourStart }, (_, index) => (
+        <div key={index} className="tt-grid-line" style={{ top: index * HOUR_HEIGHT_PX }} />
       ))}
 
-      {isCurrentDay && nowMinutes >= HOUR_START * 60 && nowMinutes <= HOUR_END * 60 ? (
-        <div className="tt-now-indicator" style={{ top: ((nowMinutes - HOUR_START * 60) / 60) * HOUR_HEIGHT }}>
+      {isCurrentDay && nowMinutes >= hourStart * 60 && nowMinutes <= hourEnd * 60 ? (
+        <div className="tt-now-indicator" style={{ top: ((nowMinutes - hourStart * 60) / 60) * HOUR_HEIGHT_PX }}>
           <span />
         </div>
       ) : null}
@@ -243,8 +256,8 @@ function DayTimeline({ day, lessons, gridHeight, onLessonClick }) {
         const end = new Date(lesson.end)
         const startMinutes = start.getHours() * 60 + start.getMinutes()
         const endMinutes = end.getHours() * 60 + end.getMinutes()
-        const top = ((startMinutes - HOUR_START * 60) / 60) * HOUR_HEIGHT
-        const height = Math.max(54, ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT)
+        const top = ((startMinutes - hourStart * 60) / 60) * HOUR_HEIGHT_PX
+        const height = Math.max(54, ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT_PX)
         const gap = 6
         const colW = lesson._totalCols > 1
           ? `calc(${100 / lesson._totalCols}% - ${(gap * (lesson._totalCols - 1)) / lesson._totalCols}px)`
@@ -343,7 +356,7 @@ function LessonDetailModal({ lesson, onClose }) {
           {lesson.isCancelled ? <span className="edp-pill danger" style={{ marginTop: 8 }}>Cours annulé</span> : <span className="edp-pill" style={{ marginTop: 8 }}>Cours</span>}
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div className="stat-cards-grid">
           <InfoLine icon={<IconClock size={16} />} label="Horaire" value={formatTimeRange(lesson.start, lesson.end)} />
           <InfoLine icon={<IconCalendar size={16} />} label="Date" value={formatDate(lesson.start, { weekday: 'long', day: 'numeric', month: 'long' })} />
           {lesson.teacher ? <InfoLine icon={<IconUsers size={16} />} label="Professeur" value={lesson.teacher} /> : null}

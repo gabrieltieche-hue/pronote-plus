@@ -24,8 +24,18 @@ export function UrlHelpPopover({ anchorRect, onClose }) {
     }
   }, [onClose])
 
+  // Position the popover so its right edge lines up with the help button,
+  // then clamp it fully inside the viewport (the button sits at the right of
+  // the URL field, so anchoring on `left` would push the box off-screen on mobile).
+  const POPOVER_WIDTH = 320
+  const vw = typeof window !== 'undefined' ? window.innerWidth : 1024
+  const popWidth = Math.min(POPOVER_WIDTH, vw - 24)
+  let clampedLeft = null
+  if (anchorRect) {
+    clampedLeft = Math.max(12, Math.min(anchorRect.right - popWidth, vw - popWidth - 12))
+  }
   const style = anchorRect
-    ? { top: anchorRect.bottom + 8, left: anchorRect.left, position: 'fixed', zIndex: 1000 }
+    ? { top: anchorRect.bottom + 8, left: clampedLeft, position: 'fixed', zIndex: 1000 }
     : { position: 'fixed', bottom: 20, right: 20, zIndex: 1000 }
 
   return (
@@ -33,7 +43,7 @@ export function UrlHelpPopover({ anchorRect, onClose }) {
       ref={ref}
       style={{
         ...style,
-        width: 320,
+        width: popWidth,
         maxWidth: '90vw',
         backgroundColor: 'rgb(var(--background-color-2))',
         borderRadius: 12,

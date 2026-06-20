@@ -24,6 +24,7 @@ import {
   formatDate,
   formatNumber,
   formatTimeRange,
+  decodeHtmlEntities,
   getFirstName,
   pluralize,
 } from '../utils/format'
@@ -72,9 +73,12 @@ export default function Dashboard() {
   )
 
   useEffect(() => {
-    if (!periodsData || selectedPeriod) return
+    if (!periodsData) return
     const list = Array.isArray(periodsData) ? periodsData : (periodsData?.periods || [])
-    if (list.length > 0) setSelectedPeriod(periodsData?.defaultPeriodId || list[0].id)
+    const selectedStillExists = list.some((period) => period.id === selectedPeriod)
+    if (list.length > 0 && (!selectedPeriod || !selectedStillExists)) {
+      setSelectedPeriod(periodsData?.defaultPeriodId || list[0].id)
+    }
   }, [periodsData, selectedPeriod])
 
   const periods = useMemo(() => {
@@ -252,10 +256,10 @@ export default function Dashboard() {
       ) : null}
 
       {!loading && !error ? (
-        <div className="windows-layout d-row animate-fade-in" style={{ gap: 'clamp(20px, 3vw, 28px)', alignItems: 'stretch' }}>
-          <div className="windows-layout d-column" style={{ flex: '2.5', minWidth: 0 }}>
+        <div className="windows-layout d-row dashboard-layout animate-fade-in">
+          <div className="windows-layout d-column dashboard-col dashboard-col-primary">
             <LastGrades grades={latestGrades} overallAvg={overallAvg} totalGrades={totalGrades} onOpen={() => navigate('/grades')} />
-            <Window style={{ flex: '1.7' }}>
+            <Window className="window-fit-content">
               <WindowHeader>
                 <h2><IconClipboard size={18} /> Cahier de texte</h2>
                 {overdueHomeworks.length > 0 ? (
@@ -270,7 +274,7 @@ export default function Dashboard() {
             </Window>
           </div>
 
-          <div className="windows-layout d-column" style={{ flex: '1.6', minWidth: 0 }}>
+          <div className="windows-layout d-column dashboard-col dashboard-col-secondary">
             <TodayPanel lessons={todayLessons} nextLesson={nextLesson} absences={absences} delays={delays} punishments={punishments} observations={observations} alerts={alerts} onOpenTimetable={() => navigate('/timetable')} onOpenVS={() => navigate('/vie-scolaire')} onNavigate={navigate} />
             <QuickLinksGrid onNavigate={navigate} unreadCount={unreadCount} messagePreview={discussions[0]?.subject || discussions[0]?.preview || ''} />
           </div>
@@ -476,7 +480,7 @@ function NotebookHomework({ homework }) {
       <div className="d2-notebook-hw-info">
         <div className="d2-notebook-hw-subject">{homework.subject || 'Sans matière'}</div>
         {homework.description ? (
-          <div className="d2-notebook-hw-desc">{homework.description}</div>
+          <div className="d2-notebook-hw-desc">{decodeHtmlEntities(homework.description)}</div>
         ) : null}
       </div>
     </div>
@@ -485,15 +489,18 @@ function NotebookHomework({ homework }) {
 
 function TodayPanel({ lessons, nextLesson, absences, delays, punishments, observations, alerts, onOpenTimetable, onOpenVS, onNavigate }) {
   return (
-    <Window>
+    <Window className="window-fit-content">
       <WindowHeader>
         <h2><IconCalendar size={18} /> Aujourd'hui</h2>
+        {lessons.length > 0 ? (
+          <span className="edp-pill">{lessons.length} cours</span>
+        ) : null}
       </WindowHeader>
       <WindowContent>
         {lessons.length > 0 ? (
           <div className="d2-today">
-            <div className="d2-today-lessons">
-              {lessons.slice(0, 4).map((lesson, idx) => (
+            <div className="d2-today-lessons d2-today-lessons-scroll">
+              {lessons.map((lesson, idx) => (
                 <div key={lesson.id || idx} className="d2-today-lesson">
                   <div className="d2-today-lesson-time">{formatTimeRange(lesson.start, lesson.end)}</div>
                   <SubjectAvatar name={lesson.subject} size={28} />
@@ -507,11 +514,9 @@ function TodayPanel({ lessons, nextLesson, absences, delays, punishments, observ
                 </div>
               ))}
             </div>
-            {lessons.length > 4 ? (
-              <button type="button" className="d2-ghost-btn" onClick={onOpenTimetable}>
-                Voir la suite <IconChevronRight size={14} />
-              </button>
-            ) : null}
+            <button type="button" className="d2-ghost-btn" onClick={onOpenTimetable}>
+              Emploi du temps complet <IconChevronRight size={14} />
+            </button>
           </div>
         ) : (
           <EmptyState
@@ -580,7 +585,7 @@ function QuickLinksGrid({ onNavigate, unreadCount, messagePreview }) {
   ]
 
   return (
-    <Window>
+    <Window className="window-fit-content">
       <WindowHeader>
         <h2><IconInbox size={18} /> Raccourcis</h2>
       </WindowHeader>

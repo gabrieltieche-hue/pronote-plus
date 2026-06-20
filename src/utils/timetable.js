@@ -110,6 +110,30 @@ export function formatWeekRange(start, end) {
   return `Semaine du ${start.getDate()} ${sm} au ${end.getDate()} ${em} ${end.getFullYear()}`
 }
 
+export const DEFAULT_HOUR_START = 7
+export const DEFAULT_HOUR_END = 20
+export const HOUR_HEIGHT_PX = 68
+
+export function computeHourRange(lessons, defaultStart = DEFAULT_HOUR_START, defaultEnd = DEFAULT_HOUR_END) {
+  let minHour = defaultStart
+  let maxHour = defaultEnd
+
+  for (const lesson of lessons || []) {
+    if (!lesson?.start || !lesson?.end) continue
+    const start = new Date(lesson.start)
+    const end = new Date(lesson.end)
+    const startH = start.getHours() + start.getMinutes() / 60
+    const endH = end.getHours() + end.getMinutes() / 60
+    if (startH < minHour) minHour = Math.floor(startH)
+    if (endH > maxHour) maxHour = Math.ceil(endH)
+  }
+
+  minHour = Math.max(6, Math.min(minHour, defaultStart))
+  maxHour = Math.min(22, Math.max(maxHour, defaultEnd, minHour + 3))
+
+  return { hourStart: minHour, hourEnd: maxHour }
+}
+
 export function computeLessonColumns(lessons) {
   if (!lessons.length) return []
   const sorted = lessons

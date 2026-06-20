@@ -353,21 +353,30 @@ function setUserDiscussionsCache(userKey, map) {
   }
 }
 
-function stripHtml(html) {
-  if (!html || typeof html !== 'string') return '';
-  return html
-    .replace(/<br\s*\/?>/gi, '\n')
-    .replace(/<\/p>/gi, '\n')
-    .replace(/<\/div>/gi, '\n')
-    .replace(/<\/li>/gi, '\n')
-    .replace(/<li[^>]*>/gi, '• ')
-    .replace(/<[^>]+>/g, '')
+function decodeHtmlEntities(text) {
+  if (!text || typeof text !== 'string') return '';
+  return text
     .replace(/&nbsp;/g, ' ')
-    .replace(/&amp;/g, '&')
+    .replace(/&apos;/g, "'")
+    .replace(/&quot;/g, '"')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
+    .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/&#(\d+);/g, (_, num) => String.fromCharCode(Number(num)))
+    .replace(/&amp;/g, '&');
+}
+
+function stripHtml(html) {
+  if (!html || typeof html !== 'string') return '';
+  return decodeHtmlEntities(
+    html
+      .replace(/<br\s*\/?>/gi, '\n')
+      .replace(/<\/p>/gi, '\n')
+      .replace(/<\/div>/gi, '\n')
+      .replace(/<\/li>/gi, '\n')
+      .replace(/<li[^>]*>/gi, '• ')
+      .replace(/<[^>]+>/g, '')
+  )
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }
@@ -567,8 +576,12 @@ app.get('/api/grades', authenticate, apiLimiter, async (req, res) => {
     }
 
     if (!period) {
-      console.error('[grades] Period not found. Received:', requestedPeriodId, 'Available:', gradesTab.periods.map((p) => p.id));
-      return res.status(404).json({ error: 'Période non trouvée' });
+      console.warn('[grades] Period not found, falling back to default. Received:', requestedPeriodId, 'Available:', gradesTab.periods.map((p) => p.id));
+      period = gradesTab.defaultPeriod || gradesTab.periods[0];
+    }
+
+    if (!period) {
+      return res.status(404).json({ error: 'Aucune période disponible' });
     }
 
     const overview = await pronote.gradesOverview(session, period).catch(() => null);
@@ -822,7 +835,7 @@ app.put('/api/homeworks/:id/done', authenticate, apiLimiter, async (req, res) =>
       await pronote.setAssignmentDone(session, id, !!done);
       return res.json({ ok: true });
     }
-    return res.status(501).json({ error: 'Cette fonctionnalité n\'est pas encore disponible.' });
+    return res.json({ ok: true, persisted: false });
   } catch (err) {
     if (isSessionError(err)) {
       invalidateUserSession(req);

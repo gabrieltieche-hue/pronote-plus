@@ -3437,8 +3437,26 @@ html.light .message-bubble.from-me { color: #fff; }
     flex-direction: column;
   }
   .windows-layout.dashboard-layout > .dashboard-col {
-    flex: 1 1 100%;
+    flex: 0 0 auto;
     width: 100%;
+  }
+  /* On mobile the dashboard windows must hug their content — otherwise the
+     "Dernières notes" card stretches to fill the viewport and shows a huge
+     empty gap. Let the page scroll naturally instead. */
+  .windows-layout.dashboard-layout .window {
+    flex: 0 0 auto;
+  }
+  /* Full-width on mobile: the desktop `align-items: flex-start` (and the
+     `window-fit-content` `align-self: flex-start`) would otherwise make each
+     block shrink to its content width — so every card ended up a different
+     width. Override so all blocks span the whole column. */
+  .windows-layout.dashboard-layout {
+    align-items: stretch;
+  }
+  .windows-layout.dashboard-layout .window,
+  .windows-layout.dashboard-layout .window.window-fit-content {
+    width: 100%;
+    align-self: stretch;
   }
   .windows-layout.d-row:not(.dashboard-layout):not(.messaging-grid) {
     flex-direction: column;

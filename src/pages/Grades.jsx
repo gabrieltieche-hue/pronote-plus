@@ -13,7 +13,7 @@ import { SubjectAvatar } from '../components/SubjectAvatar'
 import { StatCard } from '../components/StatCard'
 import { PageShell, PageHeader, SectionIntro } from '../components/PageShell'
 import { useApiAuth, useApiResource } from '../utils/hooks'
-import { calcSubjectAverage, calcOverallAverage, calcClassAverageFallback, calcTotalGradeCount, calcNeededGrade, getGradeLabel } from '../utils/grades'
+import { calcSubjectAverage, calcOverallAverage, calcClassAverageFallback, calcTotalGradeCount, calcNeededGrade, getGradeLabel, normalizeGrade } from '../utils/grades'
 import { formatDate, formatNumber, pluralize } from '../utils/format'
 import { IconTarget, IconChart, IconTrophy, IconArrowUp, IconArrowDown, IconCheck, IconBook, IconSparkles } from '../components/Icons'
 
@@ -47,7 +47,8 @@ export default function Grades() {
   useEffect(() => {
     if (periodsData) {
       const list = Array.isArray(periodsData) ? periodsData : (periodsData?.periods || [])
-      if (list.length > 0 && !selectedPeriod) {
+      const selectedStillExists = list.some((period) => period.id === selectedPeriod)
+      if (list.length > 0 && (!selectedPeriod || !selectedStillExists)) {
         setSelectedPeriod(periodsData?.defaultPeriodId || list[0].id)
       }
     }
@@ -85,14 +86,18 @@ export default function Grades() {
   const latestGrades = useMemo(() => {
     return subjects
       .flatMap((subject) =>
-        (subject.grades || []).map((grade) => ({
-          ...grade,
-          subjectName: subject.name,
-          subjectAverage: subject.studentAverage ?? calcSubjectAverage(subject.grades),
-          classAverage: subject.classAverage,
-        }))
+        (subject.grades || []).map((grade) => {
+          const normalizedValue = normalizeGrade(grade.value, grade.outOf)
+          return {
+            ...grade,
+            normalizedValue,
+            subjectName: subject.name,
+            subjectAverage: subject.studentAverage ?? calcSubjectAverage(subject.grades),
+            classAverage: subject.classAverage,
+          }
+        })
       )
-      .filter((grade) => grade.value != null)
+      .filter((grade) => grade.normalizedValue != null)
       .sort((a, b) => {
         if (!a.date) return 1
         if (!b.date) return -1
@@ -110,8 +115,9 @@ export default function Grades() {
   }
 
   const strengths = computeStrengths(subjects)
-  const deltaVsClass = overallAvg != null && classAvg != null ? overallAvg - classAvg : null
+  const gradeStats = computeGradeStats(subjects)
   const standoutSubject = strengths.strong[0]?.subject || null
+  const standoutAverage = standoutSubject ? (standoutSubject.studentAverage ?? calcSubjectAverage(standoutSubject.grades)) : null
   const watchSubject = strengths.weak[0]?.subject || null
 
   return (
@@ -141,33 +147,36 @@ export default function Grades() {
           </>
         )}
       >
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+        <div className="stat-cards-grid">
           <StatCard
             label="Moyenne générale"
-            value={overallAvg != null ? `${formatNumber(overallAvg)}/20` : '—'}
+            value={overallAvg != null ? formatNumber(overallAvg) : '—'}
+            unit={overallAvg != null ? '/20' : ''}
             sublabel={totalGrades ? `${totalGrades} notes sur la période` : 'Aucune note'}
             icon={<IconChart size={18} />}
             color="rgb(var(--border-color-0))"
           />
           <StatCard
-            label="Position classe"
-            value={deltaVsClass != null ? `${deltaVsClass > 0 ? '+' : ''}${deltaVsClass.toFixed(2)}` : '—'}
-            sublabel={classAvg != null ? `Classe ${formatNumber(classAvg)}/20` : 'Non disponible'}
-            icon={deltaVsClass != null && deltaVsClass >= 0 ? <IconArrowUp size={18} /> : <IconArrowDown size={18} />}
-            color={deltaVsClass != null && deltaVsClass >= 0 ? 'rgb(var(--color-good))' : 'rgb(var(--color-bad))'}
+            label="Notes solides"
+            value={gradeStats.valid ? `${gradeStats.passing}/${gradeStats.valid}` : '—'}
+            sublabel={gradeStats.valid ? 'notes à 10/20 ou plus' : 'Aucune note exploitable'}
+            icon={<IconCheck size={18} />}
+            color="rgb(var(--color-good))"
           />
           <StatCard
-            label="Matières"
-            value={subjects.length}
-            sublabel={standoutSubject ? `Point fort: ${standoutSubject.name}` : 'Aucune matière chargée'}
+            label="Point fort"
+            value={standoutAverage != null ? formatNumber(standoutAverage) : '—'}
+            unit={standoutAverage != null ? '/20' : ''}
+            sublabel={standoutSubject?.name || 'Aucune matière chargée'}
             icon={<IconBook size={18} />}
           />
           <StatCard
             label="Dernière note"
-            value={latestGrades[0]?.value != null ? `${formatNumber(latestGrades[0].value)}/${latestGrades[0].outOf || 20}` : '—'}
+            value={latestGrades[0]?.normalizedValue != null ? formatNumber(latestGrades[0].normalizedValue) : '—'}
+            unit={latestGrades[0]?.normalizedValue != null ? '/20' : ''}
             sublabel={latestGrades[0]?.subjectName || 'Aucune note récente'}
-            icon={latestGrades[0]?.value != null && latestGrades[0].value >= 10 ? <IconCheck size={18} /> : <IconSparkles size={18} />}
-            color={latestGrades[0]?.value != null && latestGrades[0].value >= 10 ? 'rgb(var(--color-good))' : 'rgb(var(--color-average))'}
+            icon={latestGrades[0]?.normalizedValue != null && latestGrades[0].normalizedValue >= 10 ? <IconCheck size={18} /> : <IconSparkles size={18} />}
+            color={latestGrades[0]?.normalizedValue != null && latestGrades[0].normalizedValue >= 10 ? 'rgb(var(--color-good))' : 'rgb(var(--color-average))'}
           />
         </div>
       </PageHeader>
@@ -225,7 +234,7 @@ export default function Grades() {
                     <div className="insight-card">
                       <span className="section-eyebrow">Dernière évaluation</span>
                       <strong>{latestGrades[0]?.subjectName || 'Aucune note récente'}</strong>
-                      <p>{latestGrades[0]?.date ? `${formatDate(latestGrades[0].date, { weekday: 'long', day: 'numeric', month: 'long' })} · ${formatNumber(latestGrades[0].value)}/${latestGrades[0].outOf || 20}` : 'Les nouvelles notes apparaîtront ici pour suivre les mouvements de période.'}</p>
+                      <p>{latestGrades[0]?.date ? `${formatDate(latestGrades[0].date, { weekday: 'long', day: 'numeric', month: 'long' })} · ${formatNumber(latestGrades[0].normalizedValue)}/20` : 'Les nouvelles notes apparaîtront ici pour suivre les mouvements de période.'}</p>
                     </div>
                   </div>
                 </div>
@@ -272,7 +281,7 @@ export default function Grades() {
             </WindowContent>
           </Window>
 
-          <div className="windows-layout d-row">
+          <div className="windows-layout d-row grades-bottom-grid">
             <Window style={{ flex: 1.05 }}>
               <WindowHeader>
                 <h2><IconTrophy size={18} /> Statistiques</h2>
@@ -330,7 +339,7 @@ function GeneralAverage({ overallAvg, classAvg, totalGrades, subjectCount, showC
   const diff = (overallAvg != null && classAvg != null) ? overallAvg - classAvg : null
   const isPassing = overallAvg != null && overallAvg >= 10
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 16, alignItems: 'center' }}>
+    <div className="grades-summary-grid">
       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
         <span style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', textTransform: 'uppercase', letterSpacing: '0.05em', fontWeight: 'var(--font-weight-semi-bold)' }}>
           Moyenne générale
@@ -443,10 +452,24 @@ function computeStrengths(subjects) {
   }
 }
 
+function computeGradeStats(subjects) {
+  let valid = 0
+  let passing = 0
+  for (const subject of subjects || []) {
+    for (const grade of subject.grades || []) {
+      const normalized = normalizeGrade(grade.value, grade.outOf)
+      if (normalized == null) continue
+      valid += 1
+      if (normalized >= 10) passing += 1
+    }
+  }
+  return { valid, passing }
+}
+
 function StrengthsView({ subjects }) {
   const { strong, weak } = computeStrengths(subjects)
   return (
-    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: 12 }}>
+    <div className="strengths-grid">
       <div>
         <h3 style={{ margin: '0 0 8px', fontSize: 'var(--font-size-14)', color: 'rgb(var(--color-good))', display: 'flex', alignItems: 'center', gap: 4 }}>
           <IconTrophy size={14} /> Tes points forts
@@ -497,6 +520,7 @@ function SubjectStrength({ subject, avg, classAvg, diff, positive }) {
 
 function GradesTable({ subjects, onSubjectClick }) {
   return (
+    <div className="grades-table-wrap">
     <table className="grades-table">
       <thead>
         <tr>
@@ -544,6 +568,7 @@ function GradesTable({ subjects, onSubjectClick }) {
         })}
       </tbody>
     </table>
+    </div>
   )
 }
 
@@ -591,7 +616,7 @@ function Simulator({ subjects }) {
           Les coefficients de matières ne sont pas disponibles sur ce Pronote. Le simulateur utilisera un coefficient de 1 par défaut ; les résultats restent indicatifs.
         </div>
       )}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 12 }}>
+      <div className="stat-cards-grid">
         <div>
           <label style={{ fontSize: 'var(--font-size-13)', color: 'rgb(var(--text-color-alt))', display: 'block', marginBottom: 4 }}>
             Objectif (/20)
@@ -663,8 +688,8 @@ function SubjectDetail({ subject, onBack, lastSync, onRefresh, loading }) {
     })
   }, [subject.grades])
 
-  const min = useMemo(() => Math.min(...grades.map((g) => g.value).filter((v) => Number.isFinite(v))), [grades])
-  const max = useMemo(() => Math.max(...grades.map((g) => g.value).filter((v) => Number.isFinite(v))), [grades])
+  const min = useMemo(() => Math.min(...grades.map((g) => normalizeGrade(g.value, g.outOf)).filter((v) => Number.isFinite(v))), [grades])
+  const max = useMemo(() => Math.max(...grades.map((g) => normalizeGrade(g.value, g.outOf)).filter((v) => Number.isFinite(v))), [grades])
 
   return (
     <div className="windows-container" style={{ flexDirection: 'column', minHeight: '100vh' }}>
