@@ -202,78 +202,74 @@ function DesktopWeekView({ days, lessonsByDay, onLessonClick, hourStart, hourEnd
 
   return (
     <div className="tt-desktop-shell">
-      <div className="tt-hours-column" style={{ height: gridHeight + 58 }}>
-        <div className="tt-hours-spacer" />
+      {/* Hours gutter */}
+      <div className="tt-hours-gutter">
+        <div style={{ height: 54 }} /> {/* spacer for day headers */}
         {hours.map((hour) => (
-          <div key={hour} className="tt-hour-slot" style={{ top: (hour - hourStart) * HOUR_HEIGHT_PX }}>
-            {String(hour).padStart(2, '0')}:00
+          <div key={hour} className="tt-hour-label" style={{ height: HOUR_HEIGHT_PX }}>
+            <span>{String(hour).padStart(2, '0')}:00</span>
           </div>
         ))}
       </div>
 
-      <div className="tt-board" style={{ gridTemplateColumns: `repeat(${days.length}, minmax(${DAY_COLUMN_MIN}px, 1fr))` }}>
-        {days.map((day) => (
-          <div key={day.toISOString()} className={isToday(day) ? 'tt-board-day is-today' : 'tt-board-day'}>
-            <div className="tt-board-head">
-              <span className="tt-board-head-mini">{dayLabelsMini[day.getDay()]}</span>
-              <strong>{dayLabels[day.getDay()]}</strong>
-              <span>{formatDate(day.toISOString(), { day: 'numeric', month: 'long' })}</span>
+      {/* Day columns */}
+      <div className="tt-days-grid" style={{ gridTemplateColumns: `repeat(${days.length}, 1fr)` }}>
+        {days.map((day) => {
+          const lessons = lessonsByDay.get(day.toDateString()) || []
+          const today = isToday(day)
+          return (
+            <div key={day.toISOString()} className={`tt-day-col${today ? ' is-today' : ''}`}>
+              {/* Day header */}
+              <div className="tt-day-header">
+                <span className="tt-day-header-mini">{dayLabelsMini[day.getDay()]}</span>
+                <strong>{dayLabels[day.getDay()]}</strong>
+                <span className="tt-day-header-date">{formatDate(day.toISOString(), { day: 'numeric', month: 'long' })}</span>
+              </div>
+              {/* Timeline body */}
+              <div className="tt-day-body" style={{ height: gridHeight }}>
+                {/* Grid lines */}
+                {hours.map((hour) => (
+                  <div key={hour} className="tt-grid-row" style={{ top: (hour - hourStart) * HOUR_HEIGHT_PX, height: HOUR_HEIGHT_PX }} />
+                ))}
+                {/* Now indicator */}
+                {(() => {
+                  const now = new Date()
+                  if (!today) return null
+                  const nowMin = now.getHours() * 60 + now.getMinutes()
+                  if (nowMin < hourStart * 60 || nowMin > hourEnd * 60) return null
+                  const top = ((nowMin - hourStart * 60) / 60) * HOUR_HEIGHT_PX
+                  return (
+                    <div className="tt-now-line" style={{ top }}>
+                      <div className="tt-now-dot" style={{ top: -4, left: -4 }} />
+                    </div>
+                  )
+                })()}
+                {/* Lesson cards */}
+                {computeLessonColumns(lessons).map((lesson, index) => {
+                  const start = new Date(lesson.start)
+                  const end = new Date(lesson.end)
+                  const startMin = start.getHours() * 60 + start.getMinutes()
+                  const endMin = end.getHours() * 60 + end.getMinutes()
+                  const top = ((startMin - hourStart * 60) / 60) * HOUR_HEIGHT_PX
+                  const h = Math.max(52, ((endMin - startMin) / 60) * HOUR_HEIGHT_PX)
+                  const total = lesson._totalCols
+                  const col = lesson._col
+                  const width = total > 1 ? `calc(${(100 / total) * 100 / 100}% - 4px)` : 'calc(100% - 12px)'
+                  const left = total > 1 ? `calc(${(col / total) * 100}% + 2px)` : '6px'
+                  return (
+                    <LessonCard
+                      key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`}
+                      lesson={lesson}
+                      style={{ top, height: h, left, width }}
+                      onClick={() => onLessonClick(lesson)}
+                    />
+                  )
+                })}
+              </div>
             </div>
-            <DayTimeline
-              day={day}
-              lessons={lessonsByDay.get(day.toDateString()) || []}
-              gridHeight={gridHeight}
-              hourStart={hourStart}
-              hourEnd={hourEnd}
-              onLessonClick={onLessonClick}
-            />
-          </div>
-        ))}
+          )
+        })}
       </div>
-    </div>
-  )
-}
-
-function DayTimeline({ day, lessons, gridHeight, hourStart, hourEnd, onLessonClick }) {
-  const nowMinutes = new Date().getHours() * 60 + new Date().getMinutes()
-  const isCurrentDay = isToday(day)
-  const laidOut = useMemo(() => computeLessonColumns(lessons), [lessons])
-
-  return (
-    <div className="tt-day-timeline" style={{ height: gridHeight }}>
-      {Array.from({ length: hourEnd - hourStart }, (_, index) => (
-        <div key={index} className="tt-grid-line" style={{ top: index * HOUR_HEIGHT_PX }} />
-      ))}
-
-      {isCurrentDay && nowMinutes >= hourStart * 60 && nowMinutes <= hourEnd * 60 ? (
-        <div className="tt-now-indicator" style={{ top: ((nowMinutes - hourStart * 60) / 60) * HOUR_HEIGHT_PX }}>
-          <span />
-        </div>
-      ) : null}
-
-      {laidOut.map((lesson, index) => {
-        const start = new Date(lesson.start)
-        const end = new Date(lesson.end)
-        const startMinutes = start.getHours() * 60 + start.getMinutes()
-        const endMinutes = end.getHours() * 60 + end.getMinutes()
-        const top = ((startMinutes - hourStart * 60) / 60) * HOUR_HEIGHT_PX
-        const height = Math.max(54, ((endMinutes - startMinutes) / 60) * HOUR_HEIGHT_PX)
-        const gap = 6
-        const colW = lesson._totalCols > 1
-          ? `calc(${100 / lesson._totalCols}% - ${(gap * (lesson._totalCols - 1)) / lesson._totalCols}px)`
-          : 'calc(100% - 16px)'
-        const leftPct = lesson._totalCols > 1
-          ? `calc(${(100 / lesson._totalCols) * lesson._col}% + ${lesson._col * (gap / lesson._totalCols)}px)`
-          : '0'
-        return (
-          <LessonCard
-            key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`}
-            lesson={lesson}
-            style={{ top, height, left: lesson._totalCols > 1 ? leftPct : '8px', width: colW }}
-            onClick={() => onLessonClick(lesson)}
-          />
-        )
-      })}
     </div>
   )
 }
@@ -285,10 +281,11 @@ function CompactWeekView({ days, lessonsByDay, onLessonClick }) {
     <div className="tt-compact-stack">
       {days.map((day) => {
         const lessons = lessonsByDay.get(day.toDateString()) || []
+        const today = isToday(day)
         return (
-          <section key={day.toISOString()} className={isToday(day) ? 'tt-compact-day is-today' : 'tt-compact-day'}>
+          <section key={day.toISOString()} className={`tt-compact-day${today ? ' is-today' : ''}`}>
             <div className="tt-compact-head">
-              <div>
+              <div className="tt-compact-head-left">
                 <strong>{dayLabels[day.getDay()]}</strong>
                 <span>{formatDate(day.toISOString(), { day: 'numeric', month: 'long' })}</span>
               </div>
@@ -297,21 +294,38 @@ function CompactWeekView({ days, lessonsByDay, onLessonClick }) {
 
             {lessons.length > 0 ? (
               <div className="tt-daylist">
-                {lessons.map((lesson, index) => (
-                  <div key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`} className="tt-daylist-item">
-                    <div className="tt-daylist-time">{formatTimeRange(lesson.start, lesson.end)}</div>
-                    <button type="button" className="tt-daylist-card" onClick={() => onLessonClick(lesson)}>
-                      <div className="dashboard-lesson-title">{lesson.subject}</div>
-                      <div className="dashboard-lesson-meta">
-                        {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || 'Cours'}
+                {lessons.map((lesson, index) => {
+                  const color = lessonColorFromSubject(lesson.subject)
+                  const now = new Date()
+                  const start = new Date(lesson.start)
+                  const end = new Date(lesson.end)
+                  const isActive = today && now >= start && now < end
+                  return (
+                    <div key={lesson.id || `${lesson.subject}-${lesson.start}-${index}`} className="tt-daylist-item">
+                      <div className="tt-daylist-time">
+                        <span className="tt-daylist-time-start">{formatTime(lesson.start)}</span>
+                        <span className="tt-daylist-time-dash">–</span>
+                        <span className="tt-daylist-time-end">{formatTime(lesson.end)}</span>
                       </div>
-                      {lesson.isCancelled ? <span className="edp-pill danger">Annulé</span> : null}
-                    </button>
-                  </div>
-                ))}
+                      <button
+                        type="button"
+                        className={`tt-daylist-card${lesson.isCancelled ? ' is-cancelled' : ''}${isActive ? ' is-active' : ''}`}
+                        style={{ borderLeftColor: color?.border || 'rgba(var(--border-color-contrast), 0.76)', background: isActive ? color?.bg || '' : '' }}
+                        onClick={() => onLessonClick(lesson)}
+                      >
+                        <div className="tt-daylist-card-title">{lesson.subject}</div>
+                        <div className="tt-daylist-card-meta">
+                          {[lesson.teacher, lesson.classroom].filter(Boolean).join(' · ') || 'Cours'}
+                        </div>
+                        {lesson.isCancelled ? <span className="edp-pill danger">Annulé</span> : null}
+                        {isActive ? <span className="tt-active-badge">En cours</span> : null}
+                      </button>
+                    </div>
+                  )
+                })}
               </div>
             ) : (
-              <EmptyState icon="•" title="Aucun cours" description="Cette journée ne contient pas de créneau Pronote." />
+              <div className="tt-compact-empty">Aucun cours ce jour</div>
             )}
           </section>
         )
