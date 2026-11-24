@@ -30,7 +30,7 @@ export default function Homeworks() {
   const [filter, setFilter] = useState('upcoming')
   const [search, setSearch] = useState('')
   const [subjectFilter, setSubjectFilter] = useState('all')
-  const [view, setView] = useState('list') // list | day
+  const [view, setView] = useState('list')
   const [selectedDate, setSelectedDate] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)

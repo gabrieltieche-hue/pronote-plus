@@ -31,7 +31,6 @@ export default function Messaging() {
     { deps: [token], skip: !token }
   )
 
-  // Le backend renvoie un array direct. Tolère aussi l'ancien format {discussions:[]} pour rétrocompat.
   const discussions = useMemo(() => {
     if (Array.isArray(discussionsRaw)) return discussionsRaw
     if (discussionsRaw && Array.isArray(discussionsRaw.discussions)) return discussionsRaw.discussions
@@ -264,7 +263,6 @@ function DiscussionView({ discussion, onRefresh, onReplySent, onBack }) {
     () => fetchDiscussionMessages(discussion.id),
     { deps: [discussion.id] }
   )
-  // Tolère array direct OU {messages:[]}
   const messages = useMemo(() => {
     if (Array.isArray(messagesData)) return messagesData
     if (messagesData && Array.isArray(messagesData.messages)) return messagesData.messages
@@ -284,7 +282,6 @@ function DiscussionView({ discussion, onRefresh, onReplySent, onBack }) {
     if (!reply.trim() || sending) return
     setSending(true)
     try {
-      // sendDiscussionMessage(id, content) — le token est géré par request() via getTokenFn()
       await sendDiscussionMessage(discussion.id, reply.trim())
       setReply('')
       addToast({ type: 'success', title: 'Message envoyé' })

@@ -1,15 +1,9 @@
-/* =============================================================
-   PRONOTE+ — DESIGN SYSTEM v2
-   Identité dorée · Bricolage Grotesque + Instrument Sans
-   ============================================================= */
-
 @import url('https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,600;12..96,700;12..96,800&family=Instrument+Sans:ital,wght@0,400;0,500;0,600;0,700;1,400&display=swap');
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
-/* -------------------- ROOT VARIABLES -------------------- */
 :root {
   --font-family: 'Instrument Sans', system-ui, -apple-system, sans-serif;
   --font-display: 'Bricolage Grotesque', 'Instrument Sans', system-ui, sans-serif;
@@ -46,11 +40,9 @@
   --space-page: clamp(16px, 2.6vw, 36px);
   --sidebar-w: 248px;
 
-  /* 1rem = 10px */
   font-size: 0.625em;
 }
 
-/* -------------------- DARK THEME (default) -------------------- */
 html.dark {
   --text-color-main: 240, 235, 226;
   --text-color-main-reverse: 18, 16, 12;
@@ -88,7 +80,6 @@ html.dark {
   color-scheme: dark;
 }
 
-/* -------------------- LIGHT THEME -------------------- */
 html.light {
   --text-color-main: 30, 26, 20;
   --text-color-main-reverse: 255, 253, 248;
@@ -126,7 +117,6 @@ html.light {
   color-scheme: light;
 }
 
-/* -------------------- BASE -------------------- */
 *, *::before, *::after {
   box-sizing: border-box;
 }
@@ -187,7 +177,6 @@ svg { flex-shrink: 0; }
 
 .tabular { font-variant-numeric: tabular-nums; }
 
-/* -------------------- SCROLLBAR -------------------- */
 ::-webkit-scrollbar { width: 12px; height: 12px; }
 ::-webkit-scrollbar-track {
   border-radius: 30px;
@@ -203,9 +192,6 @@ svg { flex-shrink: 0; }
   box-shadow: inset 0 0 10px 10px rgb(var(--scrollbar-thumb-hover));
 }
 
-/* =============================================================
-   APP SHELL — Sidebar (desktop) + bottom bar (mobile)
-   ============================================================= */
 .app-shell {
   display: flex;
   min-height: 100vh;
@@ -372,7 +358,6 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
   margin: 0 auto;
 }
 
-/* Page header band */
 .page-head {
   display: flex;
   align-items: flex-end;
@@ -778,7 +763,6 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
   flex-wrap: wrap;
 }
 
-/* Mobile top bar + bottom tab bar */
 .mobile-topbar { display: none; }
 .mobile-tabbar { display: none; }
 
@@ -909,9 +893,6 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
   }
 }
 
-/* =============================================================
-   WINDOWS / CARDS
-   ============================================================= */
 .windows-container {
   display: flex;
   flex-direction: column;
@@ -926,7 +907,6 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
 .windows-layout.d-column { flex-direction: column; }
 .windows-layout *, .windows-layout { min-width: 0; }
 
-/* Windows that hug their content — no empty vertical stretch */
 .window.window-fit-content {
   flex: 0 1 auto;
   align-self: flex-start;
@@ -1025,7 +1005,6 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
 .window.appeared { opacity: 1; transform: none; animation: none; }
 .window:hover { border-color: rgba(var(--border-color-contrast), 1); }
 
-/* staggered reveal */
 .windows-layout > .window:nth-child(1) { animation-delay: 0.02s; }
 .windows-layout > .window:nth-child(2) { animation-delay: 0.08s; }
 .windows-layout > .window:nth-child(3) { animation-delay: 0.14s; }
@@ -1064,16 +1043,12 @@ html.dark .sidebar-link .nav-badge { color: #120e08; }
   padding: clamp(14px, 1.8vw, 20px);
 }
 
-/* Generic surface card */
 .surface {
   background: rgb(var(--background-color-2));
   border: 1px solid rgba(var(--border-color-contrast), 0.8);
   border-radius: var(--radius-md);
 }
 
-/* =============================================================
-   BUTTONS / INPUTS / PILLS
-   ============================================================= */
 .edp-btn,
 .edp-btn-ghost,
 .edp-btn-icon {
@@ -1185,7 +1160,6 @@ textarea.edp-input {
   color: rgb(var(--color-average));
 }
 
-/* -------------------- ALERT -------------------- */
 .edp-alert {
   padding: 12px 16px;
   border-radius: var(--radius-md);
@@ -1212,7 +1186,6 @@ textarea.edp-input {
   color: rgb(var(--text-color-main));
 }
 
-/* -------------------- SEGMENTED / TABS -------------------- */
 .segmented {
   display: inline-flex;
   gap: 4px;
@@ -1311,7 +1284,6 @@ textarea.edp-input {
   accent-color: rgb(var(--border-color-0));
 }
 
-/* Search field */
 .search-field {
   display: flex;
   align-items: center;
@@ -1339,9 +1311,6 @@ textarea.edp-input {
   font-family: inherit;
 }
 
-/* =============================================================
-   GRADES
-   ============================================================= */
 .grades-table {
   width: 100%;
   border-spacing: 0 8px;
@@ -1384,7 +1353,6 @@ textarea.edp-input {
 .grade-badge.bad { color: rgb(var(--color-bad)); background-color: rgba(var(--color-bad-bg)); }
 .grade-badge.very-bad { color: rgb(var(--color-very-bad)); background-color: rgba(var(--color-very-bad-bg)); }
 
-/* Progress bar for averages */
 .avg-bar {
   height: 6px;
   border-radius: 99px;
@@ -1399,7 +1367,6 @@ textarea.edp-input {
   transition: width 0.6s var(--ease-out);
 }
 
-/* Progress ring wrapper */
 .ring-wrap { position: relative; display: inline-grid; place-items: center; }
 .ring-wrap .ring-center {
   position: absolute;
@@ -1411,9 +1378,6 @@ textarea.edp-input {
   text-align: center;
 }
 
-/* =============================================================
-   STAT CARD
-   ============================================================= */
 .stat-card {
   position: relative;
   overflow: hidden;
@@ -1742,11 +1706,6 @@ button.stat-card:hover {
   line-height: 1.55;
 }
 
-/* =============================================================
-   DASHBOARD v2 — Ecole Directe Plus faithful redesign
-   ============================================================= */
-
-/* --- LastGrades --- */
 .d2-last-grades {
   display: flex;
   flex-direction: column;
@@ -1835,7 +1794,6 @@ button.stat-card:hover {
   flex-shrink: 0;
 }
 
-/* --- Ghost button --- */
 .d2-ghost-btn {
   display: inline-flex;
   align-items: center;
@@ -1857,7 +1815,6 @@ button.stat-card:hover {
   background: rgba(var(--border-color-0), 0.1);
 }
 
-/* --- UpcomingAssignments --- */
 .d2-assignments {
   display: flex;
   flex-direction: column;
@@ -1943,7 +1900,6 @@ button.stat-card:hover {
   flex-shrink: 0;
 }
 
-/* --- Notebook / Cahier de texte --- */
 .d2-notebook {
   width: 100%;
   display: flex;
@@ -2135,7 +2091,6 @@ button.stat-card:hover {
   font-size: var(--font-size-13);
 }
 
-/* --- Today panel --- */
 .d2-today {
   display: flex;
   flex-direction: column;
@@ -2244,7 +2199,6 @@ button.stat-card:hover {
   font-size: var(--font-size-11);
 }
 
-/* --- Quick links (dashboard v2) --- */
 .d2-quick-links {
   display: grid;
   grid-template-columns: 1fr;
@@ -2350,9 +2304,6 @@ button.stat-card:hover {
   line-height: 1.55;
 }
 
-/* =============================================================
-   STATE PANELS (loading / empty / error)
-   ============================================================= */
 .state-panel {
   min-height: 220px;
   padding: clamp(28px, 5vw, 52px) 20px;
@@ -2414,9 +2365,6 @@ button.stat-card:hover {
   animation: spin 0.8s linear infinite;
 }
 
-/* =============================================================
-   SKELETON
-   ============================================================= */
 .skeleton {
   background: linear-gradient(
     90deg,
@@ -2433,9 +2381,6 @@ button.stat-card:hover {
   to { background-position: -120% 0; }
 }
 
-/* =============================================================
-   TIMETABLE
-   ============================================================= */
 .tt-scroll {
   overflow: auto;
   border-radius: var(--radius-md);
@@ -2557,7 +2502,6 @@ button.stat-card:hover {
   -webkit-overflow-scrolling: touch;
 }
 
-/* ---- Hours gutter (left column) ---- */
 .tt-hours-gutter {
   position: sticky;
   left: 0;
@@ -2577,7 +2521,6 @@ button.stat-card:hover {
   transform: translateY(-0.55em);
 }
 
-/* ---- Day columns grid ---- */
 .tt-days-grid {
   display: grid;
   gap: 6px;
@@ -2591,7 +2534,6 @@ button.stat-card:hover {
   min-width: 140px;
 }
 
-/* ---- Day header (name + date) ---- */
 .tt-day-header {
   padding: 10px 12px;
   border-radius: var(--radius-md);
@@ -2625,7 +2567,6 @@ button.stat-card:hover {
   background: rgba(var(--border-color-0), 0.08);
 }
 
-/* ---- Day body (the actual timeline) ---- */
 .tt-day-body {
   position: relative;
   border-radius: var(--radius-md);
@@ -2643,7 +2584,6 @@ button.stat-card:hover {
   border-top: 1px solid rgba(var(--border-color-contrast), 0.42);
 }
 
-/* ---- Lesson cards (desktop) ---- */
 .tt-lesson-card {
   position: absolute;
   padding: 8px 8px 8px 10px;
@@ -2694,7 +2634,6 @@ button.stat-card:hover {
   text-decoration: line-through;
 }
 
-/* ---- Compact week (mobile) ---- */
 .tt-compact-stack {
   display: flex;
   flex-direction: column;
@@ -2745,7 +2684,6 @@ button.stat-card:hover {
   opacity: 0.7;
 }
 
-/* ---- Day list (mobile cards) ---- */
 .tt-daylist {
   display: flex;
   flex-direction: column;
@@ -2852,9 +2790,6 @@ button.stat-card:hover {
   50% { opacity: 0.6; }
 }
 
-/* =============================================================
-   HOMEWORK
-   ============================================================= */
 .hw-card {
   position: relative;
   background:
@@ -2898,7 +2833,6 @@ button.stat-card:hover {
   color: var(--color-good);
 }
 
-/* Date section header */
 .date-section-head {
   display: flex;
   align-items: center;
@@ -2919,9 +2853,6 @@ button.stat-card:hover {
 }
 .date-section-head .ds-line { flex: 1; height: 1px; background: rgba(var(--border-color-contrast), 0.8); }
 
-/* =============================================================
-   FILES
-   ============================================================= */
 .file-list {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
@@ -2966,9 +2897,6 @@ button.stat-card:hover {
 .file-chip-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .file-chip-meta { color: rgb(var(--text-color-alt)); font-size: 1.05rem; font-weight: var(--font-weight-regular); }
 
-/* =============================================================
-   MESSAGING
-   ============================================================= */
 .messaging-grid { display: grid; }
 .messaging-grid > *:first-child { grid-column: 1; }
 .messaging-grid > *:last-child { grid-column: 2; }
@@ -3051,9 +2979,6 @@ html.light .message-bubble.from-me { color: #fff; }
   margin: 4px 0;
 }
 
-/* =============================================================
-   MODAL
-   ============================================================= */
 .modal-overlay {
   position: fixed;
   inset: 0;
@@ -3080,9 +3005,6 @@ html.light .message-bubble.from-me { color: #fff; }
   animation: modal-in 0.32s var(--ease-out);
 }
 
-/* =============================================================
-   AUTH
-   ============================================================= */
 .auth-page {
   min-height: 100vh;
   display: flex;
@@ -3367,9 +3289,6 @@ html.light .message-bubble.from-me { color: #fff; }
   min-width: 0;
 }
 
-/* =============================================================
-   FEATURE ICON (landing)
-   ============================================================= */
 .feature-icon {
   width: 46px;
   height: 46px;
@@ -3383,9 +3302,6 @@ html.light .message-bubble.from-me { color: #fff; }
   border: 1px solid rgba(var(--border-color-0), 0.2);
 }
 
-/* =============================================================
-   ANIMATIONS
-   ============================================================= */
 @keyframes window-in { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
@@ -3400,9 +3316,6 @@ html.light .message-bubble.from-me { color: #fff; }
 .animate-spin { animation: spin 0.8s linear infinite; }
 .animate-pop { animation: pop-in 0.4s var(--ease-out) forwards; }
 
-/* =============================================================
-   THEME TRANSITION + REDUCED MOTION
-   ============================================================= */
 .switching-theme * {
   transition: background-color 0.4s, color 0.4s, border-color 0.4s, box-shadow 0.4s, fill 0.4s, stroke 0.4s !important;
 }
@@ -3420,9 +3333,6 @@ html.light .message-bubble.from-me { color: #fff; }
   transition-duration: 0.01ms !important;
 }
 
-/* =============================================================
-   LANDING
-   ============================================================= */
 .lp-mockup { font-family: inherit; }
 .lp-cta button { transition: transform 0.15s, box-shadow 0.15s; }
 .lp-cta button:hover { transform: translateY(-2px); }
@@ -3436,9 +3346,6 @@ html.light .message-bubble.from-me { color: #fff; }
   .lp-mockup > div:first-child { grid-column: auto; }
 }
 
-/* =============================================================
-   RESPONSIVE TWEAKS
-   ============================================================= */
 .desktop-only { display: flex; }
 .mobile-only { display: none; }
 
@@ -3518,16 +3425,9 @@ html.light .message-bubble.from-me { color: #fff; }
     flex: 0 0 auto;
     width: 100%;
   }
-  /* On mobile the dashboard windows must hug their content — otherwise the
-     "Dernières notes" card stretches to fill the viewport and shows a huge
-     empty gap. Let the page scroll naturally instead. */
   .windows-layout.dashboard-layout .window {
     flex: 0 0 auto;
   }
-  /* Full-width on mobile: the desktop `align-items: flex-start` (and the
-     `window-fit-content` `align-self: flex-start`) would otherwise make each
-     block shrink to its content width — so every card ended up a different
-     width. Override so all blocks span the whole column. */
   .windows-layout.dashboard-layout {
     align-items: stretch;
   }

@@ -24,9 +24,6 @@ export function UrlHelpPopover({ anchorRect, onClose }) {
     }
   }, [onClose])
 
-  // Position the popover so its right edge lines up with the help button,
-  // then clamp it fully inside the viewport (the button sits at the right of
-  // the URL field, so anchoring on `left` would push the box off-screen on mobile).
   const POPOVER_WIDTH = 320
   const vw = typeof window !== 'undefined' ? window.innerWidth : 1024
   const popWidth = Math.min(POPOVER_WIDTH, vw - 24)

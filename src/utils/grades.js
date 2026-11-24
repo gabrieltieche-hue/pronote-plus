@@ -1,26 +1,9 @@
-/**
- * Helpers pour le calcul et l'affichage des notes.
- * Tout est normalisé sur /20 pour la comparaison.
- */
-
-/**
- * Normalise une note sur /20 si elle est sur un barème différent.
- * @param {number} value
- * @param {number} outOf
- * @returns {number|null}
- */
 export function normalizeGrade(value, outOf) {
   if (value == null || !Number.isFinite(value)) return null
   if (!outOf || outOf === 20) return value
   return (value / outOf) * 20
 }
 
-/**
- * Calcule la moyenne pondérée d'un ensemble de notes.
- * Utilise la normalisation pour que les notes sur /40 comptent autant que sur /20.
- * @param {Array<{value: number|null, outOf?: number, coefficient: number}>} grades
- * @returns {number|null} moyenne sur /20
- */
 export function calcSubjectAverage(grades) {
   if (!grades || grades.length === 0) return null
   let weightedSum = 0
@@ -36,12 +19,6 @@ export function calcSubjectAverage(grades) {
   return Math.round((weightedSum / coeffSum) * 100) / 100
 }
 
-/**
- * Calcule la moyenne générale pondérée par les coefficients des matières.
- * Les matières sans coefficient sont exclues.
- * @param {Array<{name: string, coefficient: number|null, grades: Array, studentAverage: number|null}>} subjects
- * @returns {number|null}
- */
 export function calcOverallAverage(subjects) {
   if (!subjects || subjects.length === 0) return null
   let totalWeighted = 0
@@ -95,19 +72,10 @@ function getGradesCoeffSum(subject) {
   return sum > 0 ? sum : 1
 }
 
-/**
- * Compte le nombre total de notes sur l'ensemble des matières.
- */
 export function calcTotalGradeCount(subjects) {
   return (subjects || []).reduce((acc, s) => acc + (s.grades?.length || 0), 0)
 }
 
-/**
- * Renvoie la classe CSS de couleur d'une note selon son ratio (sur /20).
- * @param {number|null} value
- * @param {number} [outOf=20]
- * @returns {'very-good'|'good'|'average'|'bad'|'very-bad'|''}
- */
 export function getGradeColorClass(value, outOf = 20) {
   if (value == null || !Number.isFinite(value)) return ''
   const pct = outOf && outOf !== 20 ? value / outOf : value / 20
@@ -118,9 +86,6 @@ export function getGradeColorClass(value, outOf = 20) {
   return 'very-bad'
 }
 
-/**
- * Renvoie le label textuel d'une classe de couleur.
- */
 export function getGradeLabel(value, outOf = 20) {
   if (value == null) return '—'
   if (value >= 16) return 'Excellent'
@@ -131,24 +96,6 @@ export function getGradeLabel(value, outOf = 20) {
   return 'Très insuffisant'
 }
 
-/**
- * Calcule la note minimale à obtenir au prochain devoir d'une matière donnée
- * pour atteindre une moyenne générale cible.
- *
- * Math (correcte) :
- * - Soit N la note du nouveau devoir, C_N son coefficient (≠ coefficient matière !)
- * - Pour la matière cible : avg_cible = (avg_actuelle * sum(coeffs existants) + N * C_N) / (sum(coeffs existants) + C_N)
- *   => N = (avg_cible * (sum(coeffs existants) + C_N) - avg_actuelle * sum(coeffs existants)) / C_N
- * - Pour les autres matières : leur contribution est figée
- * - Moyenne générale : (somme pondérée par coefficients des matières) / somme des coefficients
- *   => On part de la moyenne actuelle et on substitue la nouvelle matière
- *
- * @param {Array} subjects - toutes les matières
- * @param {number} subjectIndex - index de la matière cible
- * @param {number} targetAverage - objectif (sur /20)
- * @param {number} [newGradeCoeff=1] - coefficient du nouveau devoir (par défaut 1)
- * @returns {{needed: number, achievable: boolean, current: number, message: string}}
- */
 export function calcNeededGrade(subjects, subjectIndex, targetAverage, newGradeCoeff = 1) {
   const target = Number(targetAverage)
   if (!Number.isFinite(target) || target < 0 || target > 20) {
@@ -175,17 +122,6 @@ export function calcNeededGrade(subjects, subjectIndex, targetAverage, newGradeC
   const subCoeff = getSubjectCoeff(targetSubject)
   const subAvg = getSubjectAverage(targetSubject)
   const subExistingCoeff = getGradesCoeffSum(targetSubject)
-
-  // On veut : target = (sumWeighted + newSubjectWeighted) / (sumCoeff + subCoeff)
-  // newSubjectWeighted = targetSubject.avg * subCoeff
-  // = ((subAvg * subExistingCoeff) + (N * gc)) / (subExistingCoeff + gc) * subCoeff
-  //
-  // Soit x = subAvg * subExistingCoeff + N * gc
-  //       y = subExistingCoeff + gc
-  // target * (sumCoeff + subCoeff) = sumWeighted + (x / y) * subCoeff
-  // (x / y) * subCoeff = target * (sumCoeff + subCoeff) - sumWeighted
-  // x = (target * (sumCoeff + subCoeff) - sumWeighted) * y / subCoeff
-  // N = (x - subAvg * subExistingCoeff) / gc
 
   if (subAvg == null) {
     return { needed: null, achievable: false, current: null, message: 'Matière sans moyenne exploitable' }
@@ -214,9 +150,6 @@ export function calcNeededGrade(subjects, subjectIndex, targetAverage, newGradeC
   return { needed: rounded, achievable, alreadyMet, current: subAvg, message }
 }
 
-/**
- * Tri des notes par date (du plus ancien au plus récent) pour affichage de tendances.
- */
 export function sortGradesByDate(grades) {
   return [...(grades || [])].sort((a, b) => {
     if (!a.date) return 1
@@ -225,9 +158,6 @@ export function sortGradesByDate(grades) {
   })
 }
 
-/**
- * Groupe les notes par mois pour les graphiques de tendance.
- */
 export function groupGradesByMonth(grades) {
   const groups = new Map()
   for (const g of grades || []) {

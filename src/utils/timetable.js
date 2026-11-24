@@ -1,7 +1,3 @@
-/**
- * Helpers pour la manipulation de l'emploi du temps.
- */
-
 const DAY_LABELS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi']
 const DAY_LABELS_MINI = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
 const MONTH_LABELS = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre']

@@ -2,10 +2,6 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { configureApi } from '../services/api'
 import { useApp } from '../context/AppContext'
 
-/**
- * Configure l'API avec le token actuel et le handler d'auth.
- * À appeler dans chaque page authentifiée.
- */
 export function useApiAuth() {
   const { token, logout } = useApp()
   const onUnauthorized = useCallback(() => {
@@ -20,13 +16,6 @@ export function useApiAuth() {
   }, [token, onUnauthorized])
 }
 
-/**
- * Hook générique pour fetcher une ressource via une fonction async.
- * - Loading / error / data.
- * - Refetch via `refetchIndex` (incrémenté par `refetch()`).
- * - `skip`: suspend la requête (et reset l'error).
- * - Race conditions: cancelledRef désactive les setState d'un fetch obsolète.
- */
 export function useApiResource(fetcher, { deps = [], skip = false, onSuccess, onError } = {}) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(!skip)

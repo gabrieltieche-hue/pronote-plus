@@ -223,10 +223,6 @@ const SESSION_TTL_MS = 5 * 60 * 1000;
 const authSessions = new Map();
 const AUTH_SESSION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
-// Cache des discussions Pawnote par user (clé = userKey)
-// INDISPENSABLE: les objets Discussion de Pawnote sont mutables et stateful.
-// On doit passer la MÊME instance à discussionMessages / discussionCreateDraft / discussionRead
-// sinon la lib crash (s.possessions, s.cache, etc. undefined).
 const discussionsCache = new Map();
 const DISC_CACHE_TTL_MS = 5 * 60 * 1000;
 
@@ -734,8 +730,6 @@ app.get('/api/timetable', authenticate, apiLimiter, async (req, res) => {
       return res.json({ lessons: [], from: from.toISOString(), to: to.toISOString() });
     }
 
-    // IMPORTANT: parseTimetable est INDISPENSABLE après timetableFromIntervals
-    // pour résoudre les références internes (cours annulés, planifiés, etc.)
     try {
       pronote.parseTimetable(session, data, {
         withCanceledClasses: true,
@@ -765,10 +759,9 @@ app.get('/api/timetable', authenticate, apiLimiter, async (req, res) => {
         isExempted: isLesson ? !!c.exempted : false,
         isTest: isLesson ? !!c.test : false,
         kind: c.is,
-        // Pour les cours annulés on garde l'info dans une note
         status: c.canceled ? 'cancelled' : (c.exempted ? 'exempted' : 'normal'),
       };
-    }).filter((l) => l.start && l.end); // on enlève les entries mal formées
+    }).filter((l) => l.start && l.end);
 
     res.json({ lessons, from: from.toISOString(), to: to.toISOString() });
   } catch (err) {
@@ -971,7 +964,6 @@ app.get('/api/discussions', authenticate, apiLimiter, async (req, res) => {
       return res.json([]);
     }
 
-    // Récupère la cache existante (objets Discussion mutables) OU la rebuild
     let cached = getUserDiscussionsCache(userKey);
     let discussionsByRef = cached?.map;
 
@@ -1047,7 +1039,6 @@ app.get('/api/discussions/:id/messages', authenticate, apiLimiter, async (req, r
     }
     if (!data) return res.json({ messages: [], defaultReplyMessageID: null, canIncludeStudentsAndParents: false });
 
-    // data.sents (PAS data.messages qui n'existe pas)
     const sents = Array.isArray(data.sents) ? data.sents : [];
     const norm = sents.map((m) => {
       const authorObj = m.author;
@@ -1105,8 +1096,6 @@ app.post('/api/discussions/:id/messages', authenticate, apiLimiter, async (req, 
       return res.status(404).json({ error: 'Discussion introuvable (cache expirée, rafraîchis la liste)' });
     }
 
-    // Pawnote 1.6+: discussionCreateDraft(session, discussion, content, replyTo?)
-    // crée le brouillon ET envoie le message. Pas besoin de discussionSendDraft séparé.
     try {
       await pronote.discussionCreateDraft(session, discussion, content.trim(), replyTo || undefined);
     } catch (e) {
@@ -1134,13 +1123,11 @@ app.post('/api/discussions/:id/read', authenticate, apiLimiter, async (req, res)
     const cached = getUserDiscussionsCache(userKey);
     const discussion = cached?.map?.get(discussionId);
     if (!discussion) {
-      // best-effort: 200 OK
       return res.json({ ok: true, warning: 'cache expired' });
     }
     try {
       await pronote.discussionRead(session, discussion);
     } catch (e) {
-      // best-effort, ne pas échouer
       console.warn('[discussionRead] warn:', e?.message || e);
     }
     res.json({ ok: true });
